@@ -32,9 +32,11 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             platform-name: darwin-x64
+            rust-flags: "-C link-args=-undefined dynamic_lookup"
           - os: macos-latest
             target: aarch64-apple-darwin
             platform-name: darwin-arm64
+            rust-flags: "-C link-args=-undefined dynamic_lookup"
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             platform-name: win32-x64-msvc
@@ -65,7 +67,7 @@ jobs:
           cache: npm
 
       - name: Install npm dependencies
-        run: npm ci
+        run: npm ci --omit=optional
 
       - name: Build native binary (cross)
         if: matrix.use-cross == true
@@ -80,6 +82,8 @@ jobs:
         run: |
           cd packages/virage-chunker-ce-pdf
           npx napi build --release --target ${{ matrix.target }}
+        env:
+          RUSTFLAGS: ${{ matrix.rust-flags }}
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
