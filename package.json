@@ -6,6 +6,7 @@
   "scripts": {
     "build":          "npm run build --workspaces --if-present",
     "test":           "vitest run --reporter=verbose",
+    "bench":          "vitest bench bench/",
     "type-check":     "npm run type-check --workspaces --if-present",
     "lint":           "eslint \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\"",
     "lint:fix":       "eslint \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\" --fix",
