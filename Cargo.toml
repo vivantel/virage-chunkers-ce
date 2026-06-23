@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
-members = ["packages/*", "crates/*"]
+members  = ["packages/*", "crates/*"]
+exclude  = ["packages/virage-chunker-ce-ast"]
 
 [workspace.dependencies]
 napi        = { version = "2", features = ["napi4"] }
