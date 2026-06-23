@@ -1,0 +1,8 @@
+#!/bin/sh
+msg=$(cat "$1")
+if printf '%s' "$msg" | grep -qE '^style(\(.+\))?!?:'; then
+  echo "error: 'style:' commits are not allowed in this repo." >&2
+  echo "  CI-breaking lint/format fixes must use 'fix:' so release-please triggers a patch release." >&2
+  echo "  See docs/ai/guardrails/release.md" >&2
+  exit 1
+fi
