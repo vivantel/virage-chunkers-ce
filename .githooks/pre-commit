@@ -21,3 +21,14 @@ npm run lint --silent
 
 echo "pre-commit: npm test"
 npm test --silent
+
+echo "pre-commit: package.json / lockfile sync check"
+STAGED_PKG=$(git diff --cached --name-only | grep -E '(^|/)package\.json$' | grep -v '/node_modules/' || true)
+if [ -n "$STAGED_PKG" ]; then
+  STAGED_LOCK=$(git diff --cached --name-only | grep -E '^package-lock\.json$' || true)
+  if [ -z "$STAGED_LOCK" ]; then
+    echo "ERROR: package.json was modified but package-lock.json was not staged."
+    echo "Run 'npm install' then: git add package-lock.json"
+    exit 1
+  fi
+fi
