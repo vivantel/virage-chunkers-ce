@@ -1,7 +1,7 @@
 {
   "packages/virage-chunker-ce-ast": "0.1.0",
   "packages/virage-chunker-ce-pdf": "0.1.1",
-  "packages/virage-chunker-ce-md": "0.1.0",
+  "packages/virage-chunker-ce-md": "0.1.1",
   "packages/virage-chunker-ce-docx": "0.1.0",
   "packages/virage-chunker-ce-latex": "0.1.0"
 }
