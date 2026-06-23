@@ -1,0 +1,120 @@
+name: Build native binaries
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/virage-chunker-ce-pdf/**'
+      - 'crates/virage-vidoc/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to build (e.g. virage-chunker-ce-pdf)'
+        required: true
+        default: 'virage-chunker-ce-pdf'
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform-name: linux-x64-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            platform-name: linux-arm64-gnu
+            use-cross: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform-name: darwin-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform-name: darwin-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform-name: win32-x64-msvc
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build native binary (cross)
+        if: matrix.use-cross == true
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          args: --release -p virage-chunker-ce-pdf
+
+      - name: Build native binary (native)
+        if: matrix.use-cross != true
+        run: |
+          cd packages/virage-chunker-ce-pdf
+          npx napi build --release --target ${{ matrix.target }}
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: virage-chunker-ce-pdf-${{ matrix.platform-name }}
+          path: packages/virage-chunker-ce-pdf/*.node
+
+  # Publish platform stubs after all binaries are built (triggered by release)
+  publish-platform-stubs:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: binaries/
+
+      - name: Place binaries into platform stub packages
+        run: |
+          for dir in binaries/virage-chunker-ce-pdf-*/; do
+            platform=$(basename "$dir" | sed 's/virage-chunker-ce-pdf-//')
+            cp "$dir"/*.node "packages/virage-chunker-ce-pdf/npm/$platform/"
+          done
+
+      - name: Publish platform stubs
+        run: |
+          for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
+            npm publish "packages/virage-chunker-ce-pdf/npm/$platform/" --access public
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

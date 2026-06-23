@@ -1,0 +1,30 @@
+{
+  "name": "virage-chunkers-ce-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build":          "npm run build --workspaces --if-present",
+    "test":           "vitest run --reporter=verbose",
+    "type-check":     "npm run type-check --workspaces --if-present",
+    "lint":           "eslint \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\"",
+    "lint:fix":       "eslint \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\" --fix",
+    "format":         "prettier --write \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\"",
+    "format:check":   "prettier --check \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\"",
+    "fix":            "npm run lint:fix && npm run format",
+    "clean":          "rm -rf packages/*/dist packages/*/node_modules node_modules target"
+  },
+  "devDependencies": {
+    "@eslint/js":        "^10.0.0",
+    "@napi-rs/cli":      "^2.18.0",
+    "@types/node":        "^22.0.0",
+    "eslint":             "^10.0.0",
+    "prettier":           "^3.0.0",
+    "typescript":         "^5.0.0",
+    "typescript-eslint":  "^8.0.0",
+    "vitest":             "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

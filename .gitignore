@@ -1,0 +1,35 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Per-package lock files — root package-lock.json is canonical
+packages/*/package-lock.json
+
+# Rust build artefacts
+# Cargo.lock IS committed — these produce binary artefacts, not pure libraries
+target/
+
+# napi-rs compiled native binaries — built in CI, not committed to source
+*.node
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+*.log
+
+# Environment
+.env
+.env.local
+
+# RAG index cache
+.virage/
