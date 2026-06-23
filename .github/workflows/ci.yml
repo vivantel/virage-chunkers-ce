@@ -50,6 +50,9 @@ jobs:
       - name: Rust build check
         run: cargo check
 
+      - name: Build TypeScript workspace dependencies
+        run: npm run build -w @vivantel/virage-chunker-ce-ast
+
       - name: TypeScript type-check
         run: npm run type-check
 
