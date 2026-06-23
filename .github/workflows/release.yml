@@ -37,7 +37,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --omit=optional
 
       - name: Build TypeScript packages
         run: npm run build
