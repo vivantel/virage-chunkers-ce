@@ -3,6 +3,8 @@ resolver = "2"
 members = [
   "crates/virage-vidoc",
   "packages/virage-chunker-ce-pdf",
+  "packages/virage-chunker-ce-md",
+  "packages/virage-chunker-ce-docx",
 ]
 
 [workspace.dependencies]
