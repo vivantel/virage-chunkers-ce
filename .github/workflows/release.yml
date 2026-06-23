@@ -44,8 +44,10 @@ jobs:
 
       - name: Publish released packages
         run: |
-          for pkg in ${{ needs.release-please.outputs.paths_released }}; do
-            npm publish --workspace "$pkg" --access public
-          done
+          echo '${{ needs.release-please.outputs.paths_released }}' \
+            | jq -r '.[]' \
+            | while read -r pkg; do
+                npm publish --workspace "$pkg" --access public
+              done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -32,11 +32,11 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             platform-name: darwin-x64
-            rust-flags: "-C link-args=-undefined dynamic_lookup"
+            rust-flags: "-C link-arg=-undefined -C link-arg=dynamic_lookup"
           - os: macos-latest
             target: aarch64-apple-darwin
             platform-name: darwin-arm64
-            rust-flags: "-C link-args=-undefined dynamic_lookup"
+            rust-flags: "-C link-arg=-undefined -C link-arg=dynamic_lookup"
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             platform-name: win32-x64-msvc
