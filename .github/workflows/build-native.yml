@@ -131,6 +131,7 @@ jobs:
         run: |
           set -e
           for pkg in $(echo '${{ needs.setup.outputs.packages }}' | jq -r '.[]'); do
+            lib_name=$(echo "$pkg" | tr '-' '_')
             for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
               artifact_dir="binaries/${pkg}-${platform}"
               node_file=$(ls "$artifact_dir"/*.node 2>/dev/null | head -1)
@@ -138,7 +139,7 @@ jobs:
                 echo "ERROR: missing .node for $pkg / $platform"
                 exit 1
               fi
-              cp "$node_file" "packages/$pkg/npm/$platform/"
+              cp "$node_file" "packages/$pkg/npm/$platform/${lib_name}.node"
             done
           done
 
