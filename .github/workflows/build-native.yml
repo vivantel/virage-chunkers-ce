@@ -142,6 +142,9 @@ jobs:
             done
           done
 
+      - name: Build TypeScript workspace dependencies
+        run: npm run build --workspace packages/virage-chunker-ce-ast
+
       - name: Build TypeScript for native packages
         run: |
           for pkg in $(echo '${{ needs.setup.outputs.packages }}' | jq -r '.[]'); do
