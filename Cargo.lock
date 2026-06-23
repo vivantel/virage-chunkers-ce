@@ -1280,6 +1280,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "virage-chunker-ce-latex"
+version = "0.1.0"
+dependencies = [
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "serde_json",
+ "virage-vidoc",
+]
+
+[[package]]
 name = "virage-chunker-ce-md"
 version = "0.1.0"
 dependencies = [
