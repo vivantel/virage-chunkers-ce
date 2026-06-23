@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+echo "pre-commit: cargo fmt --check"
+cargo fmt --check
+
+echo "pre-commit: cargo clippy"
+cargo clippy -- -D warnings
+
+echo "pre-commit: npm run type-check"
+npm run type-check --silent
+
+echo "pre-commit: npm run lint"
+npm run lint --silent
+
+echo "pre-commit: npm test"
+npm test --silent
