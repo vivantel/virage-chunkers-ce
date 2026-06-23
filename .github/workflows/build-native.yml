@@ -1,45 +1,47 @@
-name: Build native binaries
+name: Build & publish native binaries
 
 on:
   push:
     branches: [main]
     paths:
+      - 'packages/virage-chunker-ce-md/**'
+      - 'packages/virage-chunker-ce-docx/**'
+      - 'packages/virage-chunker-ce-latex/**'
       - 'packages/virage-chunker-ce-pdf/**'
-      - 'crates/virage-vidoc/**'
+      - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
   workflow_dispatch:
     inputs:
       package:
-        description: 'Package to build (e.g. virage-chunker-ce-pdf)'
-        required: true
-        default: 'virage-chunker-ce-pdf'
+        description: 'Package to build — leave blank to build all native packages'
+        required: false
+        default: ''
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
+    name: ${{ matrix.package }} / ${{ matrix.platform-name }}
+    if: ${{ inputs.package == '' || inputs.package == matrix.package }}
     strategy:
       fail-fast: false
       matrix:
+        package:
+          - virage-chunker-ce-md
+          - virage-chunker-ce-docx
+          - virage-chunker-ce-latex
+          - virage-chunker-ce-pdf
+        platform-name:
+          - linux-x64-gnu
+          - linux-arm64-gnu
+          - darwin-x64
+          - darwin-arm64
+          - win32-x64-msvc
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            platform-name: linux-x64-gnu
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            platform-name: linux-arm64-gnu
-            use-cross: true
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            platform-name: darwin-x64
-            rust-flags: "-C link-arg=-undefined -C link-arg=dynamic_lookup"
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            platform-name: darwin-arm64
-            rust-flags: "-C link-arg=-undefined -C link-arg=dynamic_lookup"
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform-name: win32-x64-msvc
+          - { platform-name: linux-x64-gnu,   os: ubuntu-latest,  target: x86_64-unknown-linux-gnu }
+          - { platform-name: linux-arm64-gnu, os: ubuntu-latest,  target: aarch64-unknown-linux-gnu, use-cross: true }
+          - { platform-name: darwin-x64,      os: macos-latest,   target: x86_64-apple-darwin,      rust-flags: "-C link-arg=-undefined -C link-arg=dynamic_lookup" }
+          - { platform-name: darwin-arm64,    os: macos-latest,   target: aarch64-apple-darwin,     rust-flags: "-C link-arg=-undefined -C link-arg=dynamic_lookup" }
+          - { platform-name: win32-x64-msvc,  os: windows-latest, target: x86_64-pc-windows-msvc }
 
     runs-on: ${{ matrix.os }}
 
@@ -51,8 +53,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Cache cargo
-        uses: actions/cache@v6
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -60,65 +61,108 @@ jobs:
             target
           key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
 
-      - name: Install npm dependencies
-        run: npm ci --omit=optional
+      - run: npm ci --omit=optional
 
-      - name: Build native binary (cross)
+      - name: Build (cross — ARM64 Linux)
         if: matrix.use-cross == true
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
           target: ${{ matrix.target }}
-          args: --release -p virage-chunker-ce-pdf
+          args: --release -p ${{ matrix.package }}
 
-      - name: Build native binary (native)
+      - name: Build (native)
         if: matrix.use-cross != true
         run: |
-          cd packages/virage-chunker-ce-pdf
+          cd packages/${{ matrix.package }}
           npx napi build --release --target ${{ matrix.target }}
         env:
           RUSTFLAGS: ${{ matrix.rust-flags }}
 
-      - name: Upload binary artifact
-        uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
-          name: virage-chunker-ce-pdf-${{ matrix.platform-name }}
-          path: packages/virage-chunker-ce-pdf/*.node
+          name: ${{ matrix.package }}-${{ matrix.platform-name }}
+          path: packages/${{ matrix.package }}/*.node
 
-  # Publish platform stubs after all binaries are built (triggered by release)
-  publish-platform-stubs:
-    if: startsWith(github.ref, 'refs/tags/')
+  publish-native:
+    name: Publish native packages
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-node@v6
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci --omit=optional
 
       - name: Download all binary artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           path: binaries/
 
-      - name: Place binaries into platform stub packages
+      - name: Verify all binaries present and place into npm/ and dist/
         run: |
-          for dir in binaries/virage-chunker-ce-pdf-*/; do
-            platform=$(basename "$dir" | sed 's/virage-chunker-ce-pdf-//')
-            cp "$dir"/*.node "packages/virage-chunker-ce-pdf/npm/$platform/"
+          set -e
+          PKG_FILTER="${{ inputs.package }}"
+          for pkg in virage-chunker-ce-md virage-chunker-ce-docx virage-chunker-ce-latex virage-chunker-ce-pdf; do
+            if [ -n "$PKG_FILTER" ] && [ "$PKG_FILTER" != "$pkg" ]; then continue; fi
+            for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
+              artifact_dir="binaries/${pkg}-${platform}"
+              node_file=$(ls "$artifact_dir"/*.node 2>/dev/null | head -1)
+              if [ -z "$node_file" ]; then
+                echo "ERROR: missing .node for $pkg / $platform"
+                exit 1
+              fi
+              cp "$node_file" "packages/$pkg/npm/$platform/"
+            done
           done
 
-      - name: Publish platform stubs
+      - name: Build TypeScript for native packages
         run: |
-          for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
-            npm publish "packages/virage-chunker-ce-pdf/npm/$platform/" --access public
+          PKG_FILTER="${{ inputs.package }}"
+          for pkg in virage-chunker-ce-md virage-chunker-ce-docx virage-chunker-ce-latex virage-chunker-ce-pdf; do
+            if [ -n "$PKG_FILTER" ] && [ "$PKG_FILTER" != "$pkg" ]; then continue; fi
+            npm run build --workspace "packages/$pkg"
           done
+
+      - name: Publish platform stubs then main packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          PKG_FILTER="${{ inputs.package }}"
+          for pkg in virage-chunker-ce-md virage-chunker-ce-docx virage-chunker-ce-latex virage-chunker-ce-pdf; do
+            if [ -n "$PKG_FILTER" ] && [ "$PKG_FILTER" != "$pkg" ]; then continue; fi
+            pkg_name=$(node -p "require('./packages/${pkg}/package.json').name")
+            version=$(node -p "require('./packages/${pkg}/package.json').version")
+
+            if npm view "${pkg_name}@${version}" version 2>/dev/null | grep -qF "${version}"; then
+              echo "ℹ️  ${pkg_name}@${version} already on npm — skipping"
+              continue
+            fi
+
+            # Publish platform stubs first so the optional deps resolve on install
+            for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
+              stub_name="${pkg_name}-${platform}"
+              if npm view "${stub_name}@${version}" version 2>/dev/null | grep -qF "${version}"; then
+                echo "ℹ️  ${stub_name}@${version} already on npm — skipping"
+              else
+                npm publish "packages/${pkg}/npm/${platform}/" --access public
+              fi
+            done
+
+            npm publish --workspace "packages/${pkg}" --access public
+          done

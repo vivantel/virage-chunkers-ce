@@ -42,12 +42,17 @@ jobs:
       - name: Build TypeScript packages
         run: npm run build
 
-      - name: Publish released packages
+      - name: Publish released packages (TypeScript only — native packages published by build-native.yml)
         run: |
+          NATIVE_PKGS="packages/virage-chunker-ce-md packages/virage-chunker-ce-docx packages/virage-chunker-ce-latex packages/virage-chunker-ce-pdf"
           echo '${{ needs.release-please.outputs.paths_released }}' \
             | jq -r '.[]' \
             | while read -r pkg; do
-                npm publish --workspace "$pkg" --access public
+                if echo " $NATIVE_PKGS " | grep -qw "$pkg"; then
+                  echo "Skipping $pkg — binaries must be built first; build-native.yml will publish it"
+                else
+                  npm publish --workspace "$pkg" --access public
+                fi
               done
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
