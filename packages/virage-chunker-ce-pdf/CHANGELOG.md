@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-pdf@v0.1.3...virage-chunker-ce-pdf@v0.1.4) (2026-06-24)
+
+
+### Bug Fixes
+
+* **virage-chunker-ce-pdf:** Bump platform stubs to 0.1.3; restore lockfile version fields ([f3637e8](https://github.com/vivantel/virage-chunkers-ce/commit/f3637e8f2b61911410ee1cd51485061e05257dab))
+
 ## [0.1.3](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-pdf@v0.1.2...virage-chunker-ce-pdf@v0.1.3) (2026-06-24)
 
 
