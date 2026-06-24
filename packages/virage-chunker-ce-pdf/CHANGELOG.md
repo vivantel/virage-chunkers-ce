@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.3](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-pdf@v0.1.2...virage-chunker-ce-pdf@v0.1.3) (2026-06-24)
+
+
+### Features
+
+* Add DOCX chunker and Markdown chunker packages ([93af888](https://github.com/vivantel/virage-chunkers-ce/commit/93af888c32f5a27abc26f7988c4a4bc9b2bbdc73))
+* **ce-ast:** Port three-artifact model (ArtifactSet) + createNativeChunker factory ([3472e2c](https://github.com/vivantel/virage-chunkers-ce/commit/3472e2c5a354f69acfad0a4ba72a7737f7c3599f))
+
+
+### Bug Fixes
+
+* **virage-chunker-ce-pdf:** Bump platform stub versions to 0.1.2 to match main package ([0caa582](https://github.com/vivantel/virage-chunkers-ce/commit/0caa582ed3f4a28d3838f601e27d931b4c0d98f4))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @vivantel/virage-chunker-ce-ast bumped from >=0.1 to >=0.1.2
+
 ## [0.1.2](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-pdf@v0.1.1...virage-chunker-ce-pdf@v0.1.2) (2026-06-24)
 
 
