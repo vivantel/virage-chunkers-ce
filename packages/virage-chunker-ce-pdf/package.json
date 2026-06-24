@@ -30,11 +30,11 @@
     "minimatch": "^10.0.0"
   },
   "optionalDependencies": {
-    "@vivantel/virage-chunker-ce-pdf-linux-x64-gnu": "0.1.0",
-    "@vivantel/virage-chunker-ce-pdf-linux-arm64-gnu": "0.1.0",
-    "@vivantel/virage-chunker-ce-pdf-darwin-x64": "0.1.0",
-    "@vivantel/virage-chunker-ce-pdf-darwin-arm64": "0.1.0",
-    "@vivantel/virage-chunker-ce-pdf-win32-x64-msvc": "0.1.0"
+    "@vivantel/virage-chunker-ce-pdf-linux-x64-gnu": "0.1.2",
+    "@vivantel/virage-chunker-ce-pdf-linux-arm64-gnu": "0.1.2",
+    "@vivantel/virage-chunker-ce-pdf-darwin-x64": "0.1.2",
+    "@vivantel/virage-chunker-ce-pdf-darwin-arm64": "0.1.2",
+    "@vivantel/virage-chunker-ce-pdf-win32-x64-msvc": "0.1.2"
   },
   "rag-plugin": {
     "type": "chunker",
