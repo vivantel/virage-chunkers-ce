@@ -1,12 +1,20 @@
 {
   "name": "@vivantel/virage-chunker-ce-docx-darwin-x64",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "macOS x64 native binary for @vivantel/virage-chunker-ce-docx",
   "main": "virage_chunker_ce_docx.node",
-  "files": ["virage_chunker_ce_docx.node"],
-  "os": ["darwin"],
-  "cpu": ["x64"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "virage_chunker_ce_docx.node"
+  ],
+  "os": [
+    "darwin"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
