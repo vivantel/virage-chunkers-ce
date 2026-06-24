@@ -23,7 +23,67 @@
     },
     "packages/virage-chunker-ce-pdf": {
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        { "type": "json", "path": "npm/linux-x64-gnu/package.json",  "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/linux-arm64-gnu/package.json","jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-x64/package.json",     "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-arm64/package.json",   "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/win32-x64-msvc/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-pdf-linux-x64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-pdf-linux-arm64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-pdf-darwin-x64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-pdf-darwin-arm64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-pdf-win32-x64-msvc']" }
+      ]
+    },
+    "packages/virage-chunker-ce-md": {
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        { "type": "json", "path": "npm/linux-x64-gnu/package.json",  "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/linux-arm64-gnu/package.json","jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-x64/package.json",     "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-arm64/package.json",   "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/win32-x64-msvc/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-md-linux-x64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-md-linux-arm64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-md-darwin-x64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-md-darwin-arm64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-md-win32-x64-msvc']" }
+      ]
+    },
+    "packages/virage-chunker-ce-docx": {
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        { "type": "json", "path": "npm/linux-x64-gnu/package.json",  "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/linux-arm64-gnu/package.json","jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-x64/package.json",     "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-arm64/package.json",   "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/win32-x64-msvc/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-docx-linux-x64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-docx-linux-arm64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-docx-darwin-x64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-docx-darwin-arm64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-docx-win32-x64-msvc']" }
+      ]
+    },
+    "packages/virage-chunker-ce-latex": {
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        { "type": "json", "path": "npm/linux-x64-gnu/package.json",  "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/linux-arm64-gnu/package.json","jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-x64/package.json",     "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/darwin-arm64/package.json",   "jsonpath": "$.version" },
+        { "type": "json", "path": "npm/win32-x64-msvc/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-linux-x64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-linux-arm64-gnu']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-darwin-x64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-darwin-arm64']" },
+        { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-win32-x64-msvc']" }
+      ]
     }
   },
   "plugins": [

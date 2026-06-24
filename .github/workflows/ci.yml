@@ -46,6 +46,9 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
 
+      - name: Patch lockfile stub version fields
+        run: node scripts/patch-lockfile-stubs.cjs
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -133,6 +136,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Patch lockfile stub version fields
+        run: node scripts/patch-lockfile-stubs.cjs
+
       - run: npm ci --omit=optional
 
       - name: Install cross-compilation toolchain (ARM64 Linux)
@@ -178,6 +184,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
           cache: npm
+
+      - name: Patch lockfile stub version fields
+        run: node scripts/patch-lockfile-stubs.cjs
 
       - run: npm ci --omit=optional
 

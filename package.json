@@ -14,7 +14,8 @@
     "format:check":   "prettier --check \"packages/*/src/**/*.ts\" \"packages/*/src-ts/**/*.ts\"",
     "fix":            "npm run lint:fix && npm run format",
     "clean":          "rm -rf packages/*/dist packages/*/node_modules node_modules target",
-    "prepare":        "git config core.hooksPath .githooks 2>/dev/null || true"
+    "prepare":        "git config core.hooksPath .githooks 2>/dev/null || true",
+    "postinstall":    "node scripts/patch-lockfile-stubs.cjs"
   },
   "devDependencies": {
     "@eslint/js":        "^10.0.0",
