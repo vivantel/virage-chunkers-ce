@@ -1,29 +1,16 @@
-import type { FileChunker } from "@vivantel/virage-core";
-import { minimatch } from "minimatch";
-import { chunkLatexFile } from "./strategy.js";
-import type { LatexChunkerOptions } from "./strategy.js";
+import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
+import type { BaseOptions } from "@vivantel/virage-chunker-ce-ast";
+import { createRequire } from "node:module";
 
-export type { LatexChunkerOptions };
+const require = createRequire(import.meta.url);
 
-const DEFAULT_PATTERNS = ["**/*.tex", "**/*.latex"];
+export type LatexChunkerOptions = BaseOptions;
 
-export function createChunker(opts: LatexChunkerOptions = {}): FileChunker {
-  const patterns = DEFAULT_PATTERNS;
-  const ignore = opts.ignore ?? [];
-
-  return {
-    name: "@vivantel/virage-chunker-ce-latex",
-    patterns,
-
-    async chunk(filePath: string, commitHash: string) {
-      return chunkLatexFile(filePath, commitHash, opts);
-    },
-
-    async canProcess(filePath: string): Promise<boolean> {
-      if (ignore.some((p) => minimatch(filePath, p, { matchBase: true }))) {
-        return false;
-      }
-      return patterns.some((p) => minimatch(filePath, p, { matchBase: true }));
-    },
-  };
-}
+export const createChunker = createNativeChunker<LatexChunkerOptions>({
+  name: "@vivantel/virage-chunker-ce-latex",
+  sourceFormat: "latex",
+  patterns: ["**/*.tex", "**/*.latex"],
+  loadBinding: () => require("./virage_chunker_ce_latex.node"),
+  callNative: (b, buf) => b["parseLatex"](buf),
+  extraWalkOpts: () => ({ overlap: 0.1 }),
+});

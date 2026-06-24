@@ -1,29 +1,15 @@
-import type { FileChunker } from "@vivantel/virage-core";
-import { minimatch } from "minimatch";
-import { chunkPdfFile } from "./strategy.js";
-import type { PdfChunkerOptions } from "./strategy.js";
+import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
+import type { BaseOptions } from "@vivantel/virage-chunker-ce-ast";
+import { createRequire } from "node:module";
 
-export type { PdfChunkerOptions };
+const require = createRequire(import.meta.url);
 
-const DEFAULT_PATTERNS = ["**/*.pdf"];
+export type PdfChunkerOptions = BaseOptions;
 
-export function createChunker(opts: PdfChunkerOptions = {}): FileChunker {
-  const patterns = DEFAULT_PATTERNS;
-  const ignore = opts.ignore ?? [];
-
-  return {
-    name: "@vivantel/virage-chunker-ce-pdf",
-    patterns,
-
-    async chunk(filePath: string, commitHash: string) {
-      return chunkPdfFile(filePath, commitHash, opts);
-    },
-
-    async canProcess(filePath: string): Promise<boolean> {
-      if (ignore.some((p) => minimatch(filePath, p, { matchBase: true }))) {
-        return false;
-      }
-      return patterns.some((p) => minimatch(filePath, p, { matchBase: true }));
-    },
-  };
-}
+export const createChunker = createNativeChunker<PdfChunkerOptions>({
+  name: "@vivantel/virage-chunker-ce-pdf",
+  sourceFormat: "pdf",
+  patterns: ["**/*.pdf"],
+  loadBinding: () => require("./virage_chunker_ce_pdf.node"),
+  callNative: (b, buf) => b["parsePdf"](buf),
+});

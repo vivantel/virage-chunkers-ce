@@ -1,29 +1,19 @@
-import type { FileChunker } from "@vivantel/virage-core";
-import { minimatch } from "minimatch";
-import { chunkDocxFile } from "./strategy.js";
-import type { DocxChunkerOptions } from "./strategy.js";
+import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
+import type { BaseOptions } from "@vivantel/virage-chunker-ce-ast";
+import { createRequire } from "node:module";
 
-export type { DocxChunkerOptions };
+const require = createRequire(import.meta.url);
 
-const DEFAULT_PATTERNS = ["**/*.docx"];
+export type DocxChunkerOptions = BaseOptions;
 
-export function createChunker(opts: DocxChunkerOptions = {}): FileChunker {
-  const patterns = DEFAULT_PATTERNS;
-  const ignore = opts.ignore ?? [];
-
-  return {
-    name: "@vivantel/virage-chunker-ce-docx",
-    patterns,
-
-    async chunk(filePath: string, commitHash: string) {
-      return chunkDocxFile(filePath, commitHash, opts);
-    },
-
-    async canProcess(filePath: string): Promise<boolean> {
-      if (ignore.some((p) => minimatch(filePath, p, { matchBase: true }))) {
-        return false;
-      }
-      return patterns.some((p) => minimatch(filePath, p, { matchBase: true }));
-    },
-  };
-}
+export const createChunker = createNativeChunker<DocxChunkerOptions>({
+  name: "@vivantel/virage-chunker-ce-docx",
+  sourceFormat: "docx",
+  patterns: ["**/*.docx"],
+  loadBinding: () => require("./virage_chunker_ce_docx.node"),
+  callNative: (b, buf) => b["parseDocx"](buf),
+  extraWalkOpts: () => ({
+    overlap: 0.1,
+    boundaryPadding: { before: 1, after: 1 },
+  }),
+});

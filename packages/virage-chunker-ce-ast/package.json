@@ -16,6 +16,9 @@
     "type-check": "tsc --build --noEmit",
     "test":       "vitest run"
   },
+  "dependencies": {
+    "minimatch": "^10.0.0"
+  },
   "peerDependencies": {
     "@vivantel/virage-core": ">=0.2"
   },

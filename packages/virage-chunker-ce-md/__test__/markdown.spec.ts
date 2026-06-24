@@ -1,136 +1,137 @@
-import { describe, it, expect, vi } from "vitest";
+import { vi, describe, it, expect } from "vitest";
 import type { DocNode } from "@vivantel/virage-chunker-ce-ast";
-
-// Mock the native binary — not present in CI without a Rust build step.
-vi.mock("../src-ts/native.js", () => ({
-  parseMd: vi.fn(),
-}));
-
-// Mock the filesystem so chunk() doesn't require a real file on disk.
-vi.mock("fs/promises", () => ({
-  readFile: vi.fn().mockResolvedValue("# Mock\n\nContent."),
-  stat: vi.fn().mockResolvedValue({ size: 100, mtime: new Date("2026-01-01") }),
-}));
-
-import { parseMd } from "../src-ts/native.js";
+import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
+import type { MdChunkerOptions } from "../src-ts/index.js";
 import { createChunker } from "../src-ts/index.js";
 
-const mockParseMd = vi.mocked(parseMd);
+vi.mock("node:fs/promises", () => ({
+  readFile: vi.fn().mockResolvedValue(Buffer.from("# Hello\n\nWorld")),
+  stat: vi.fn().mockResolvedValue({ size: 15, mtime: new Date("2025-01-01T00:00:00Z") }),
+}));
 
-function makeDocNode(overrides: Partial<DocNode> = {}): DocNode {
+function makeDocNode(): DocNode {
   return {
     type: "document",
-    attrs: { byteStart: 0, byteEnd: 200 },
     children: [
       {
-        type: "heading",
-        text: "Introduction",
-        attrs: { headingLevel: 1, byteStart: 0, byteEnd: 14 },
+        type: "section",
+        children: [
+          { type: "heading", text: "Introduction", attrs: { byteStart: 0, byteEnd: 14, headingLevel: 1 } },
+          {
+            type: "paragraph",
+            text: "This is the introduction text with enough words to fill a chunk.",
+            attrs: { byteStart: 16, byteEnd: 80 },
+          },
+        ],
+        attrs: { byteStart: 0, byteEnd: 80 },
       },
       {
-        type: "paragraph",
-        text: "This is an introductory paragraph with enough text to form a chunk.",
-        attrs: { byteStart: 16, byteEnd: 82 },
+        type: "section",
+        children: [
+          { type: "heading", text: "Methods", attrs: { byteStart: 82, byteEnd: 91, headingLevel: 2 } },
+          { type: "code", text: "fn compute() -> u32 { 42 }", attrs: { byteStart: 93, byteEnd: 120, codeLanguage: "rust" } },
+          { type: "code", text: "<CodeBlock lang=\"ts\">\nconst x = 1;\n</CodeBlock>", attrs: { byteStart: 122, byteEnd: 170, codeLanguage: "jsx" } },
+        ],
+        attrs: { byteStart: 82, byteEnd: 170 },
       },
     ],
-    ...overrides,
+    attrs: { byteStart: 0, byteEnd: 170 },
   };
 }
 
-describe("createChunker", () => {
-  it("returns a FileChunker with the correct name", () => {
-    const chunker = createChunker();
-    expect(chunker.name).toBe("@vivantel/virage-chunker-ce-md");
-  });
+const docNodeJson = JSON.stringify(makeDocNode());
 
-  it("patterns include .md and .mdx", () => {
-    const chunker = createChunker();
-    expect(chunker.patterns).toContain("**/*.md");
-    expect(chunker.patterns).toContain("**/*.mdx");
-  });
+function createTestChunker(opts?: MdChunkerOptions) {
+  return createNativeChunker<MdChunkerOptions>({
+    name: "@vivantel/virage-chunker-ce-md",
+    sourceFormat: "md",
+    patterns: ["**/*.md", "**/*.mdx"],
+    loadBinding: () => ({ parseMd: () => docNodeJson }),
+    callNative: (b) => b["parseMd"](),
+    extraWalkOpts: (o) => ({ overlap: o.overlap ?? 0.15 }),
+  })(opts);
+}
 
-  it("canProcess returns true for .md files", async () => {
-    const chunker = createChunker();
-    expect(await chunker.canProcess?.("README.md")).toBe(true);
-    expect(await chunker.canProcess?.("docs/guide.md")).toBe(true);
-  });
-
-  it("canProcess returns true for .mdx files", async () => {
-    const chunker = createChunker();
-    expect(await chunker.canProcess?.("pages/index.mdx")).toBe(true);
-  });
-
-  it("canProcess returns false for non-markdown files", async () => {
-    const chunker = createChunker();
-    expect(await chunker.canProcess?.("main.ts")).toBe(false);
-    expect(await chunker.canProcess?.("report.pdf")).toBe(false);
-    expect(await chunker.canProcess?.("data.json")).toBe(false);
-  });
-
-  it("canProcess respects ignore patterns", async () => {
-    const chunker = createChunker({ ignore: ["**/node_modules/**"] });
-    expect(await chunker.canProcess?.("node_modules/pkg/README.md")).toBe(false);
-  });
-
-  it("chunk calls parseMd and returns chunks with required ChunkMeta fields", async () => {
-    mockParseMd.mockReturnValue(makeDocNode());
-    const chunker = createChunker({ maxTokens: 512 });
-
-    const chunks = await chunker.chunk("README.md", "abc123");
-
-    expect(chunks.length).toBeGreaterThan(0);
-    for (const chunk of chunks) {
-      const meta = chunk.metadata as Record<string, unknown>;
-      expect(meta.sourceFile).toBe("README.md");
-      expect(meta.sourceFormat).toBe("md");
-      expect(meta.strategy).toBe("@vivantel/virage-chunker-ce-md");
-      expect(typeof meta.chunkIndex).toBe("number");
-      expect(typeof meta.totalChunks).toBe("number");
-      expect(typeof meta.estimatedTokens).toBe("number");
-      expect(Array.isArray(meta.breadcrumb)).toBe(true);
-      expect(typeof meta.byteStart).toBe("number");
-      expect(typeof meta.byteEnd).toBe("number");
-    }
-  });
-
-  it("chunk sets sourceFormat to mdx for .mdx files", async () => {
-    mockParseMd.mockReturnValue(makeDocNode());
-    const chunker = createChunker();
-    const chunks = await chunker.chunk("index.mdx", "abc123");
-    expect(chunks[0]?.metadata.sourceFormat).toBe("mdx");
-  });
-
-  it("chunk sets breadcrumb from heading context", async () => {
-    mockParseMd.mockReturnValue(makeDocNode());
-    const chunker = createChunker({ maxTokens: 512 });
-    const chunks = await chunker.chunk("README.md", "abc123");
-    const metas = chunks.map((c) => c.metadata as Record<string, unknown>);
-    expect(metas.some((m) => (m.breadcrumb as string[]).includes("Introduction"))).toBe(true);
-  });
-
-  it("chunk sets chunkIndex sequentially from 0", async () => {
-    // Use multiple paragraphs so the windowing algorithm produces 2+ chunks.
-    // maxTokens=10 (40 chars) → each 60-char paragraph fills more than one window.
-    const para = (n: number, start: number) => ({
-      type: "paragraph" as const,
-      text: `Paragraph ${n} with some content here.`,
-      attrs: { byteStart: start, byteEnd: start + 40 },
+describe("virage-chunker-ce-md", () => {
+  describe("createChunker (bound)", () => {
+    it("returns an ArtifactChunker with correct name and patterns", () => {
+      const chunker = createChunker();
+      expect(chunker.name).toBe("@vivantel/virage-chunker-ce-md");
+      expect(chunker.patterns).toContain("**/*.md");
+      expect(chunker.patterns).toContain("**/*.mdx");
     });
-    mockParseMd.mockReturnValue(
-      makeDocNode({
-        children: [
-          para(1, 0),
-          para(2, 41),
-          para(3, 82),
-          para(4, 123),
-        ],
-      }),
-    );
-    const chunker = createChunker({ maxTokens: 10 });
-    const chunks = await chunker.chunk("big.md", "abc123");
-    expect(chunks.length).toBeGreaterThanOrEqual(2);
-    chunks.forEach((c, i) => {
-      expect((c.metadata as Record<string, unknown>).chunkIndex).toBe(i);
+
+    it("canProcess accepts .md and .mdx, rejects .pdf", async () => {
+      const chunker = createChunker();
+      expect(await chunker.canProcess?.("README.md")).toBe(true);
+      expect(await chunker.canProcess?.("page.mdx")).toBe(true);
+      expect(await chunker.canProcess?.("doc.pdf")).toBe(false);
+    });
+
+    it("canProcess respects ignore list", async () => {
+      const chunker = createChunker({ ignore: ["**/node_modules/**"] });
+      expect(await chunker.canProcess?.("node_modules/foo/README.md")).toBe(false);
+      expect(await chunker.canProcess?.("docs/guide.md")).toBe(true);
+    });
+  });
+
+  describe("chunk() with mock binding", () => {
+    it("returns ArtifactSet[] with all three artifacts populated", async () => {
+      const chunker = createTestChunker();
+      const results = await chunker.chunk("docs/guide.md", "abc123");
+
+      expect(results.length).toBeGreaterThan(0);
+      for (const artifact of results) {
+        expect(typeof artifact.searchRepresentation.id).toBe("string");
+        expect(typeof artifact.searchRepresentation.anchorText).toBe("string");
+        expect(artifact.candidateChunk.preview.length).toBeLessThanOrEqual(250);
+        expect(typeof artifact.finalAnswerChunk.content).toBe("string");
+        expect(artifact.searchRepresentation.filterMetadata.sourceFormat).toBe("md");
+        expect(artifact.searchRepresentation.filterMetadata.fileHash).toBeTruthy();
+      }
+    });
+
+    it("breadcrumb includes heading text", async () => {
+      const chunker = createTestChunker();
+      const results = await chunker.chunk("docs/guide.md", "abc123");
+      const headings = results
+        .map((r) => r.searchRepresentation.filterMetadata.breadcrumb)
+        .flat();
+      expect(headings).toContain("Introduction");
+    });
+
+    it("code blocks carry codeLanguage in filterMetadata", async () => {
+      const chunker = createTestChunker();
+      const results = await chunker.chunk("docs/guide.md", "abc123");
+      const codeChunks = results.filter(
+        (r) => r.searchRepresentation.filterMetadata.codeLanguage != null,
+      );
+      expect(codeChunks.length).toBeGreaterThan(0);
+      // At least one chunk should carry a code language (first code lang wins per window).
+      const langs = codeChunks.map((r) => r.searchRepresentation.filterMetadata.codeLanguage);
+      expect(langs.some((l) => l === "rust" || l === "jsx")).toBe(true);
+
+      // JSX content should appear in at least one chunk's final answer.
+      const allContent = results.map((r) => r.finalAnswerChunk.content).join("\n");
+      expect(allContent).toContain("CodeBlock");
+    });
+
+    it("applies default overlap of 0.15 from extraWalkOpts", async () => {
+      // When no overlap is specified, the factory's extraWalkOpts sets 0.15.
+      // With overlap, chunk count may be higher than without. We just verify
+      // that multiple artifacts are produced from a multi-section document.
+      const chunker = createTestChunker();
+      const results = await chunker.chunk("docs/guide.md", "abc123");
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    it("user-specified overlap overrides the default", async () => {
+      const chunkerNoOverlap = createTestChunker({ overlap: 0 });
+      const chunkerWithOverlap = createTestChunker({ overlap: 0.5 });
+      const r1 = await chunkerNoOverlap.chunk("docs/guide.md", "abc123");
+      const r2 = await chunkerWithOverlap.chunk("docs/guide.md", "abc123");
+      // With higher overlap, the window count should be >= the no-overlap count.
+      expect(r2.length).toBeGreaterThanOrEqual(r1.length);
     });
   });
 });

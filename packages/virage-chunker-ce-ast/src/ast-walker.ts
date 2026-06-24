@@ -1,7 +1,8 @@
-import type { DocNode, DocNodeAttrs } from "./types.js";
+import type { DocNode, DocNodeAttrs, DocNodeType } from "./types.js";
 
 export interface TextSegment {
   text: string;
+  nodeType: DocNodeType;
   attrs: DocNodeAttrs;
   /** Ancestor heading texts at the time this segment was emitted. */
   breadcrumb: string[];
@@ -32,6 +33,7 @@ export function walkDocNode(root: DocNode): TextSegment[] {
     if (isLeafText && node.text) {
       segments.push({
         text: node.text,
+        nodeType: node.type,
         attrs: node.attrs,
         breadcrumb: [...breadcrumb],
       });
