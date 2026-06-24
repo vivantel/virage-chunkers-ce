@@ -1,6 +1,6 @@
 {
   "name": "@vivantel/virage-chunker-ce-pdf",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "PDF chunker for Virage — text layer extraction via Rust (lopdf)",
   "type": "module",
   "main": "./dist/index.js",
