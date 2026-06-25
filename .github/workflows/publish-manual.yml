@@ -1,4 +1,4 @@
-name: Publish (manual)
+name: Publish emergency (TS only)
 
 on:
   workflow_dispatch:

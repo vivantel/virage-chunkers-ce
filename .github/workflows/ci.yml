@@ -77,6 +77,7 @@ jobs:
         run: npm test
 
   setup:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.resolve.outputs.packages }}
@@ -94,8 +95,7 @@ jobs:
     needs: setup
     if: |
       github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/master')
+      github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -166,80 +166,3 @@ jobs:
           name: ${{ matrix.package }}-${{ matrix.platform-name }}
           path: packages/${{ matrix.package }}/*.node
           if-no-files-found: error
-
-  publish-native:
-    name: Publish native packages
-    needs: [setup, build, ci]
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-          cache: npm
-
-      - name: Patch lockfile stub version fields
-        run: node scripts/patch-lockfile-stubs.cjs
-
-      - run: npm ci --omit=optional
-
-      - name: Download all binary artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: binaries/
-
-      - name: Verify all binaries present and place into npm/
-        run: |
-          set -e
-          for pkg in $(echo '${{ needs.setup.outputs.packages }}' | jq -r '.[]'); do
-            lib_name=$(echo "$pkg" | tr '-' '_')
-            for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
-              artifact_dir="binaries/${pkg}-${platform}"
-              node_file=$(ls "$artifact_dir"/*.node 2>/dev/null | head -1)
-              if [ -z "$node_file" ]; then
-                echo "ERROR: missing .node for $pkg / $platform"
-                exit 1
-              fi
-              cp "$node_file" "packages/$pkg/npm/$platform/${lib_name}.node"
-            done
-          done
-
-      - name: Build TypeScript workspace dependencies
-        run: npm run build --workspace packages/virage-chunker-ce-ast
-
-      - name: Build TypeScript for native packages
-        run: |
-          for pkg in $(echo '${{ needs.setup.outputs.packages }}' | jq -r '.[]'); do
-            npm run build --workspace "packages/$pkg"
-          done
-
-      - name: Publish platform stubs then main packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          for pkg in $(echo '${{ needs.setup.outputs.packages }}' | jq -r '.[]'); do
-            pkg_name=$(node -p "require('./packages/${pkg}/package.json').name")
-            version=$(node -p "require('./packages/${pkg}/package.json').version")
-
-            for platform in linux-x64-gnu linux-arm64-gnu darwin-x64 darwin-arm64 win32-x64-msvc; do
-              stub_name="${pkg_name}-${platform}"
-              if npm view "${stub_name}@${version}" version 2>/dev/null | grep -qF "${version}"; then
-                echo "ℹ️  ${stub_name}@${version} already on npm — skipping"
-              else
-                npm publish "packages/${pkg}/npm/${platform}/" --access public
-              fi
-            done
-
-            if npm view "${pkg_name}@${version}" version 2>/dev/null | grep -qF "${version}"; then
-              echo "ℹ️  ${pkg_name}@${version} already on npm — skipping"
-            else
-              npm publish --workspace "packages/${pkg}" --access public
-            fi
-          done
