@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-md@v0.1.2...virage-chunker-ce-md@v0.1.3) (2026-06-26)
+
+
+### Bug Fixes
+
+* **virage-chunker-ce-md:** Load native binding from platform stub when .node not beside dist/ ([23ce79c](https://github.com/vivantel/virage-chunkers-ce/commit/23ce79ca77b60ba43fa54beef07a31bb7ce677ce))
+
 ## [0.1.2](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-md@v0.1.1...virage-chunker-ce-md@v0.1.2) (2026-06-24)
 
 
