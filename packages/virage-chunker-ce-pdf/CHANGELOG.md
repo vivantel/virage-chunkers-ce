@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.6](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-pdf@v0.1.5...virage-chunker-ce-pdf@v0.1.6) (2026-06-26)
+
+
+### Features
+
+* Three-field flat ArtifactSet with generator IDs; add virage-chunker-ce-ts ([b4d4aed](https://github.com/vivantel/virage-chunkers-ce/commit/b4d4aed51498e785ea778a0be8aed9bf374cbbf6))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * peerDependencies
+    * @vivantel/virage-chunker-ce-ast bumped from >=0.1 to >=0.1.4
+
 ## [0.1.5](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-pdf@v0.1.4...virage-chunker-ce-pdf@v0.1.5) (2026-06-26)
 
 
