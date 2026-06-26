@@ -1,5 +1,5 @@
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
-import type { BaseOptions } from "@vivantel/virage-chunker-ce-ast";
+import type { BaseOptions, ParseResult } from "@vivantel/virage-chunker-ce-ast";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -11,6 +11,6 @@ export const createChunker = createNativeChunker<LatexChunkerOptions>({
   sourceFormat: "latex",
   patterns: ["**/*.tex", "**/*.latex"],
   loadBinding: () => require("./virage_chunker_ce_latex.node"),
-  callNative: (b, buf) => b["parseLatex"](buf),
+  callNative: (b, filePath) => b["parseLatex"](filePath) as unknown as ParseResult,
   extraWalkOpts: () => ({ overlap: 0.1 }),
 });

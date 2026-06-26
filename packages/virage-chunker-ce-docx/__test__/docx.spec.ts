@@ -1,13 +1,8 @@
-import { vi, describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { DocNode } from "@vivantel/virage-chunker-ce-ast";
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
 import type { DocxChunkerOptions } from "../src-ts/index.js";
 import { createChunker } from "../src-ts/index.js";
-
-vi.mock("node:fs/promises", () => ({
-  readFile: vi.fn().mockResolvedValue(Buffer.from("fake docx bytes")),
-  stat: vi.fn().mockResolvedValue({ size: 15, mtime: new Date("2025-01-01T00:00:00Z") }),
-}));
 
 function makeDocNode(): DocNode {
   return {
@@ -60,14 +55,15 @@ function makeDocNode(): DocNode {
 }
 
 const docNodeJson = JSON.stringify(makeDocNode());
+const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 15, modifiedMs: 0 };
 
 function createTestChunker(opts?: DocxChunkerOptions) {
   return createNativeChunker<DocxChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-docx",
     sourceFormat: "docx",
     patterns: ["**/*.docx"],
-    loadBinding: () => ({ parseDocx: () => docNodeJson }),
-    callNative: (b) => b["parseDocx"](),
+    loadBinding: () => ({}),
+    callNative: (_b, _filePath) => mockResult,
     extraWalkOpts: () => ({ overlap: 0.1, boundaryPadding: { before: 1, after: 1 } }),
   })(opts);
 }
@@ -116,7 +112,6 @@ describe("virage-chunker-ce-docx", () => {
       const tableChunks = results.filter(
         (r) => r.finalAnswerChunk.content.includes("Widget A"),
       );
-      // Table chunks should contain the section breadcrumb embedded in cell nodes.
       expect(tableChunks.length).toBeGreaterThan(0);
     });
   });

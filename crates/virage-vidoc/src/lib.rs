@@ -1,4 +1,46 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+/// Raw file data plus metadata, produced by [`read_for_chunker`].
+/// Each chunker's napi binding reads this once and passes the bytes to its
+/// format-specific parser — no data crosses the JS/Rust boundary.
+pub struct FileInfo {
+    pub bytes: Vec<u8>,
+    /// SHA-256 hex digest of the raw file bytes.
+    pub hash: String,
+    /// File size in bytes (as f64 so napi callers get a JS Number, not BigInt).
+    pub size: f64,
+    /// Last-modified time as milliseconds since Unix epoch.
+    pub modified_ms: f64,
+}
+
+/// Read a file and compute its SHA-256 hash and metadata in one pass.
+///
+/// # Errors
+/// Returns a descriptive string on I/O failure.
+pub fn read_for_chunker(path: &str) -> Result<FileInfo, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    let meta = std::fs::metadata(path).map_err(|e| format!("cannot stat {path}: {e}"))?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let hash = format!("{:x}", hasher.finalize());
+
+    let size = meta.len() as f64;
+    let modified_ms = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as f64)
+        .unwrap_or(0.0);
+
+    Ok(FileInfo {
+        bytes,
+        hash,
+        size,
+        modified_ms,
+    })
+}
 
 /// Every node type in the ViDoc AST.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

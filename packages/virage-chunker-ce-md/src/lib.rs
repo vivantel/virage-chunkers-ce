@@ -1,29 +1,44 @@
 #![deny(clippy::all)]
 
 use napi_derive::napi;
+use virage_vidoc::read_for_chunker;
 
 mod parser;
 
-/// Parse Markdown (or MDX) source and return a JSON-encoded ViDoc DocNode tree.
-///
-/// The returned string is `serde_json::to_string(&DocNode)` — the TypeScript
-/// side deserializes it with `JSON.parse(result) as DocNode`.
-///
-/// # Errors
-///
-/// Returns an napi Error if parsing or serialization fails.
+#[napi(object)]
+pub struct ParseResult {
+    pub tree: String,
+    pub hash: String,
+    pub size: f64,
+    pub modified_ms: f64,
+}
+
 #[napi]
-pub fn parse_md(src: String) -> napi::Result<String> {
+pub fn parse_md(path: String) -> napi::Result<ParseResult> {
+    let info =
+        read_for_chunker(&path).map_err(|e| napi::Error::new(napi::Status::GenericFailure, e))?;
+    let src = String::from_utf8(info.bytes).map_err(|e| {
+        napi::Error::new(
+            napi::Status::GenericFailure,
+            format!("file {path} is not valid UTF-8: {e}"),
+        )
+    })?;
     let doc = parser::parse(&src).map_err(|e| {
         napi::Error::new(
             napi::Status::GenericFailure,
             format!("Markdown parse error: {e}"),
         )
     })?;
-    serde_json::to_string(&doc).map_err(|e| {
+    let tree = serde_json::to_string(&doc).map_err(|e| {
         napi::Error::new(
             napi::Status::GenericFailure,
-            format!("Serialization error: {e}"),
+            format!("serialization error: {e}"),
         )
+    })?;
+    Ok(ParseResult {
+        tree,
+        hash: info.hash,
+        size: info.size,
+        modified_ms: info.modified_ms,
     })
 }

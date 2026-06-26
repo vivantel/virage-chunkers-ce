@@ -17,4 +17,4 @@ export { extractOutline } from "./outline.js";
 export { walkToChunks } from "./chunker.js";
 export type { WalkOptions } from "./chunker.js";
 export { createNativeChunker } from "./factory.js";
-export type { BaseOptions, NativeChunkerDef } from "./factory.js";
+export type { BaseOptions, NativeChunkerDef, ParseResult } from "./factory.js";

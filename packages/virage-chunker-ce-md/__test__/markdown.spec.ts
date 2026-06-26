@@ -1,13 +1,8 @@
-import { vi, describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { DocNode } from "@vivantel/virage-chunker-ce-ast";
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
 import type { MdChunkerOptions } from "../src-ts/index.js";
 import { createChunker } from "../src-ts/index.js";
-
-vi.mock("node:fs/promises", () => ({
-  readFile: vi.fn().mockResolvedValue(Buffer.from("# Hello\n\nWorld")),
-  stat: vi.fn().mockResolvedValue({ size: 15, mtime: new Date("2025-01-01T00:00:00Z") }),
-}));
 
 function makeDocNode(): DocNode {
   return {
@@ -40,14 +35,15 @@ function makeDocNode(): DocNode {
 }
 
 const docNodeJson = JSON.stringify(makeDocNode());
+const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 15, modifiedMs: 0 };
 
 function createTestChunker(opts?: MdChunkerOptions) {
   return createNativeChunker<MdChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-md",
     sourceFormat: "md",
     patterns: ["**/*.md", "**/*.mdx"],
-    loadBinding: () => ({ parseMd: () => docNodeJson }),
-    callNative: (b) => b["parseMd"](),
+    loadBinding: () => ({}),
+    callNative: (_b, _filePath) => mockResult,
     extraWalkOpts: (o) => ({ overlap: o.overlap ?? 0.15 }),
   })(opts);
 }
@@ -107,19 +103,13 @@ describe("virage-chunker-ce-md", () => {
         (r) => r.searchRepresentation.filterMetadata.codeLanguage != null,
       );
       expect(codeChunks.length).toBeGreaterThan(0);
-      // At least one chunk should carry a code language (first code lang wins per window).
       const langs = codeChunks.map((r) => r.searchRepresentation.filterMetadata.codeLanguage);
       expect(langs.some((l) => l === "rust" || l === "jsx")).toBe(true);
-
-      // JSX content should appear in at least one chunk's final answer.
       const allContent = results.map((r) => r.finalAnswerChunk.content).join("\n");
       expect(allContent).toContain("CodeBlock");
     });
 
     it("applies default overlap of 0.15 from extraWalkOpts", async () => {
-      // When no overlap is specified, the factory's extraWalkOpts sets 0.15.
-      // With overlap, chunk count may be higher than without. We just verify
-      // that multiple artifacts are produced from a multi-section document.
       const chunker = createTestChunker();
       const results = await chunker.chunk("docs/guide.md", "abc123");
       expect(results.length).toBeGreaterThan(0);
@@ -130,7 +120,6 @@ describe("virage-chunker-ce-md", () => {
       const chunkerWithOverlap = createTestChunker({ overlap: 0.5 });
       const r1 = await chunkerNoOverlap.chunk("docs/guide.md", "abc123");
       const r2 = await chunkerWithOverlap.chunk("docs/guide.md", "abc123");
-      // With higher overlap, the window count should be >= the no-overlap count.
       expect(r2.length).toBeGreaterThanOrEqual(r1.length);
     });
   });

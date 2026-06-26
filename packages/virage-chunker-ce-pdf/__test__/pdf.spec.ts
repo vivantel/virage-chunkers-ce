@@ -1,13 +1,8 @@
-import { vi, describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { DocNode } from "@vivantel/virage-chunker-ce-ast";
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
 import type { PdfChunkerOptions } from "../src-ts/index.js";
 import { createChunker } from "../src-ts/index.js";
-
-vi.mock("node:fs/promises", () => ({
-  readFile: vi.fn().mockResolvedValue(Buffer.from("fake pdf bytes")),
-  stat: vi.fn().mockResolvedValue({ size: 14, mtime: new Date("2025-01-01T00:00:00Z") }),
-}));
 
 function makeDocNode(text: string): DocNode {
   return {
@@ -31,14 +26,15 @@ function makeDocNode(text: string): DocNode {
 const SAMPLE_TEXT =
   "This is a paragraph with enough content that it can produce a meaningful chunk for testing.";
 const docNodeJson = JSON.stringify(makeDocNode(SAMPLE_TEXT));
+const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 14, modifiedMs: 0 };
 
 function createTestChunker(opts?: PdfChunkerOptions) {
   return createNativeChunker<PdfChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-pdf",
     sourceFormat: "pdf",
     patterns: ["**/*.pdf"],
-    loadBinding: () => ({ parsePdf: () => docNodeJson }),
-    callNative: (b) => b["parsePdf"](),
+    loadBinding: () => ({}),
+    callNative: (_b, _filePath) => mockResult,
   })(opts);
 }
 
@@ -71,21 +67,15 @@ describe("virage-chunker-ce-pdf", () => {
 
       expect(results.length).toBeGreaterThan(0);
       for (const artifact of results) {
-        // SearchRepresentation
         expect(typeof artifact.searchRepresentation.id).toBe("string");
         expect(typeof artifact.searchRepresentation.anchorText).toBe("string");
         expect(Array.isArray(artifact.searchRepresentation.sparseTerms)).toBe(true);
-
-        // CandidateChunk
         expect(artifact.candidateChunk.id).toBe(artifact.searchRepresentation.id);
         expect(typeof artifact.candidateChunk.preview).toBe("string");
         expect(artifact.candidateChunk.preview.length).toBeLessThanOrEqual(250);
-
-        // FinalAnswerChunk
         expect(artifact.finalAnswerChunk.id).toBe(artifact.searchRepresentation.id);
         expect(typeof artifact.finalAnswerChunk.content).toBe("string");
 
-        // FilterMeta provenance
         const fm = artifact.searchRepresentation.filterMetadata;
         expect(fm.sourceFile).toBe("report.pdf");
         expect(fm.sourceFormat).toBe("pdf");
@@ -109,9 +99,9 @@ describe("virage-chunker-ce-pdf", () => {
         patterns: ["**/*.pdf"],
         loadBinding: () => {
           callCount++;
-          return { parsePdf: () => docNodeJson };
+          return {};
         },
-        callNative: (b) => b["parsePdf"](),
+        callNative: (_b, _filePath) => mockResult,
       })();
 
       expect(callCount).toBe(0);

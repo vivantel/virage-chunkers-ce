@@ -1,5 +1,3 @@
-import { readFile, stat } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { minimatch } from "minimatch";
 import type { ArtifactSet, ArtifactChunker, DocNode } from "./types.js";
 import { walkToChunks } from "./chunker.js";
@@ -15,6 +13,16 @@ export interface BaseOptions {
   ignore?: string[];
 }
 
+/** Returned by every native chunker binding. Rust reads the file, computes
+ *  the SHA-256 hash, and returns all four fields so JS never holds the file
+ *  bytes. */
+export interface ParseResult {
+  tree: string;
+  hash: string;
+  size: number;
+  modifiedMs: number;
+}
+
 export interface NativeChunkerDef<TOptions extends BaseOptions> {
   /** npm package name, used as the `strategy` field in ArtifactSet. */
   name: string;
@@ -26,16 +34,17 @@ export interface NativeChunkerDef<TOptions extends BaseOptions> {
    * Return the native napi binding object. Called at most once per chunker
    * instance (lazily, on the first `chunk()` call).
    */
-  loadBinding: () => Record<string, (...args: unknown[]) => string>;
+  loadBinding: () => Record<string, (...args: unknown[]) => unknown>;
   /**
-   * Invoke the correct function on the already-loaded binding.
-   * Must return a JSON-encoded DocNode string.
+   * Invoke the correct function on the already-loaded binding, passing the
+   * file path. Rust reads the file and returns a ParseResult — no file data
+   * crosses the JS/Rust boundary.
    */
   callNative: (
     binding: ReturnType<NativeChunkerDef<TOptions>["loadBinding"]>,
-    buf: Buffer,
+    filePath: string,
     opts: TOptions,
-  ) => string;
+  ) => ParseResult;
   /** Format-specific WalkOptions defaults. Spread before user opts so user opts win. */
   extraWalkOpts?: (opts: TOptions) => Partial<WalkOptions>;
   /** Optional post-walk hook for format-specific enrichment (XLSX cell refs, etc.). */
@@ -44,8 +53,8 @@ export interface NativeChunkerDef<TOptions extends BaseOptions> {
 
 /**
  * Factory that eliminates boilerplate common to every native-binary chunker:
- * file read, sha256 hash, lazy native binding load, walkToChunks call, and
- * optional enrich hook.
+ * lazy binding load, walkToChunks, and optional enrich hook.
+ * File I/O and hashing happen inside Rust via callNative.
  *
  * Usage:
  *   export const createChunker = createNativeChunker<MyOptions>({ ... });
@@ -70,14 +79,10 @@ export function createNativeChunker<TOptions extends BaseOptions>(
       patterns: def.patterns,
 
       async chunk(filePath: string, commitHash: string): Promise<ArtifactSet[]> {
-        const [buf, stats] = await Promise.all([readFile(filePath), stat(filePath)]);
-        const fileHash = createHash("sha256").update(buf).digest("hex");
         const binding = getBinding();
-        const raw = def.callNative(binding, buf, resolvedOpts);
-        const docNode = JSON.parse(raw) as DocNode;
+        const result = def.callNative(binding, filePath, resolvedOpts);
+        const docNode = JSON.parse(result.tree) as DocNode;
 
-        // extraWalkOpts provides format-specific defaults; explicit user opts
-        // override them; required fields are always set last.
         const extra = def.extraWalkOpts ? def.extraWalkOpts(resolvedOpts) : {};
         const sets = walkToChunks(docNode, {
           ...extra,
@@ -103,9 +108,9 @@ export function createNativeChunker<TOptions extends BaseOptions>(
           sourceFormat: def.sourceFormat,
           commitHash,
           strategy: def.name,
-          fileHash,
-          fileSizeBytes: stats.size,
-          fileModifiedAt: stats.mtime.toISOString(),
+          fileHash: result.hash,
+          fileSizeBytes: result.size,
+          fileModifiedAt: new Date(result.modifiedMs).toISOString(),
         });
 
         return def.enrich ? def.enrich(sets, docNode, resolvedOpts) : sets;

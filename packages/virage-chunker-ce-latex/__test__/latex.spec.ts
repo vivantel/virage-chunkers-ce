@@ -1,13 +1,8 @@
-import { vi, describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import type { DocNode } from "@vivantel/virage-chunker-ce-ast";
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
 import type { LatexChunkerOptions } from "../src-ts/index.js";
 import { createChunker } from "../src-ts/index.js";
-
-vi.mock("node:fs/promises", () => ({
-  readFile: vi.fn().mockResolvedValue(Buffer.from("\\begin{document}\\section{Intro}Hello\\end{document}")),
-  stat: vi.fn().mockResolvedValue({ size: 50, mtime: new Date("2025-01-01T00:00:00Z") }),
-}));
 
 function makeDocNode(): DocNode {
   return {
@@ -36,14 +31,15 @@ function makeDocNode(): DocNode {
 }
 
 const docNodeJson = JSON.stringify(makeDocNode());
+const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 50, modifiedMs: 0 };
 
 function createTestChunker(opts?: LatexChunkerOptions) {
   return createNativeChunker<LatexChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-latex",
     sourceFormat: "latex",
     patterns: ["**/*.tex", "**/*.latex"],
-    loadBinding: () => ({ parseLatex: () => docNodeJson }),
-    callNative: (b) => b["parseLatex"](),
+    loadBinding: () => ({}),
+    callNative: (_b, _filePath) => mockResult,
     extraWalkOpts: () => ({ overlap: 0.1 }),
   })(opts);
 }

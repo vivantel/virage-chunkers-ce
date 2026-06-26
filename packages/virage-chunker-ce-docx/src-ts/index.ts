@@ -1,5 +1,5 @@
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
-import type { BaseOptions } from "@vivantel/virage-chunker-ce-ast";
+import type { BaseOptions, ParseResult } from "@vivantel/virage-chunker-ce-ast";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -11,7 +11,7 @@ export const createChunker = createNativeChunker<DocxChunkerOptions>({
   sourceFormat: "docx",
   patterns: ["**/*.docx"],
   loadBinding: () => require("./virage_chunker_ce_docx.node"),
-  callNative: (b, buf) => b["parseDocx"](buf),
+  callNative: (b, filePath) => b["parseDocx"](filePath) as unknown as ParseResult,
   extraWalkOpts: () => ({
     overlap: 0.1,
     boundaryPadding: { before: 1, after: 1 },

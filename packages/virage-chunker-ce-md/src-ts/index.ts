@@ -1,5 +1,5 @@
 import { createNativeChunker } from "@vivantel/virage-chunker-ce-ast";
-import type { BaseOptions } from "@vivantel/virage-chunker-ce-ast";
+import type { BaseOptions, ParseResult } from "@vivantel/virage-chunker-ce-ast";
 import { createRequire } from "node:module";
 import { platform, arch } from "node:process";
 
@@ -43,6 +43,6 @@ export const createChunker = createNativeChunker<MdChunkerOptions>({
   sourceFormat: "md",
   patterns: ["**/*.md", "**/*.mdx"],
   loadBinding,
-  callNative: (b, buf) => b["parseMd"](buf),
+  callNative: (b, filePath) => b["parseMd"](filePath) as unknown as ParseResult,
   extraWalkOpts: (opts) => ({ overlap: opts.overlap ?? 0.15 }),
 });
