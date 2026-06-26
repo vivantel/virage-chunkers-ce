@@ -84,6 +84,10 @@
         { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-darwin-arm64']" },
         { "type": "json", "path": "package.json", "jsonpath": "$.optionalDependencies['@vivantel/virage-chunker-ce-latex-win32-x64-msvc']" }
       ]
+    },
+    "packages/virage-chunker-ce-ts": {
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true
     }
   },
   "plugins": [
