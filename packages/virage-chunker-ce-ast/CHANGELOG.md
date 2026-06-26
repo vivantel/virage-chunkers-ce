@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-ast@v0.1.2...virage-chunker-ce-ast@v0.1.3) (2026-06-26)
+
+
+### Bug Fixes
+
+* Pass file path to Rust; no file bytes cross JS/Rust boundary ([2e304a7](https://github.com/vivantel/virage-chunkers-ce/commit/2e304a731e2fc28783a631fca20274ff9cda3142))
+
 ## [0.1.2](https://github.com/vivantel/virage-chunkers-ce/compare/virage-chunker-ce-ast@v0.1.1...virage-chunker-ce-ast@v0.1.2) (2026-06-24)
 
 
