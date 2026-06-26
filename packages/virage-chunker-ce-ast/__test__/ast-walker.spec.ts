@@ -97,32 +97,28 @@ describe("walkToChunks", () => {
     sourceFile: "test.pdf",
     sourceFormat: "pdf",
     commitHash: "abc123",
-    strategy: "@vivantel/virage-chunker-ce-ast@0.1.0",
+    sparseTextGeneratorId: "test@0.1.0:sparse:{}",
+    metadataGeneratorId: "test@0.1.0:meta:{}",
     maxTokens: 20,
     minTokens: 5,
   };
 
   function checkArtifact(a: ArtifactSet) {
-    // Search Representation
-    expect(typeof a.searchRepresentation.id).toBe("string");
-    expect(typeof a.searchRepresentation.anchorText).toBe("string");
-    expect(a.searchRepresentation.anchorText.length).toBeGreaterThan(0);
-    // Candidate Chunk
-    expect(a.candidateChunk.id).toBe(a.searchRepresentation.id);
-    expect(typeof a.candidateChunk.preview).toBe("string");
-    // FilterMeta required fields
-    const fm = a.searchRepresentation.filterMetadata;
-    expect(typeof fm.sourceFile).toBe("string");
-    expect(typeof fm.byteStart).toBe("number");
-    expect(typeof fm.byteEnd).toBe("number");
-    expect(Array.isArray(fm.breadcrumb)).toBe(true);
-    expect(typeof fm.strategy).toBe("string");
-    expect(typeof fm.chunkIndex).toBe("number");
-    expect(typeof fm.totalChunks).toBe("number");
-    expect(typeof fm.estimatedTokens).toBe("number");
-    // Final Answer
-    expect(typeof a.finalAnswerChunk.content).toBe("string");
-    expect(a.finalAnswerChunk.content.length).toBeGreaterThan(0);
+    expect(typeof a.denseText).toBe("string");
+    expect(a.denseText.length).toBeGreaterThan(0);
+    expect(typeof a.sparseText).toBe("string");
+    expect(typeof a.denseTextHash).toBe("string");
+    expect(a.denseTextHash.length).toBe(16);
+    expect(typeof a.sparseTextGeneratorId).toBe("string");
+    expect(typeof a.metadataGeneratorId).toBe("string");
+    const m = a.metadata;
+    expect(typeof m.sourceFile).toBe("string");
+    expect(typeof m.byteStart).toBe("number");
+    expect(typeof m.byteEnd).toBe("number");
+    expect(Array.isArray(m.breadcrumb)).toBe(true);
+    expect(typeof m.chunkIndex).toBe("number");
+    expect(typeof m.totalChunks).toBe("number");
+    expect(typeof m.estimatedTokens).toBe("number");
   }
 
   it("returns empty array for empty document", () => {
@@ -146,45 +142,22 @@ describe("walkToChunks", () => {
     );
     const artifacts = walkToChunks(bigDoc, { ...opts, maxTokens: 5 });
     artifacts.forEach((a, i) => {
-      expect(a.searchRepresentation.filterMetadata.chunkIndex).toBe(i);
-      expect(a.searchRepresentation.filterMetadata.totalChunks).toBe(
-        artifacts.length,
-      );
+      expect(a.metadata.chunkIndex).toBe(i);
+      expect(a.metadata.totalChunks).toBe(artifacts.length);
     });
-  });
-
-  it("sets candidateChunk.fullMeta.chunkIndex equal to filterMetadata.chunkIndex", () => {
-    const artifacts = walkToChunks(doc(para("x".repeat(200))), opts);
-    for (const a of artifacts) {
-      expect(a.candidateChunk.fullMeta.chunkIndex).toBe(
-        a.searchRepresentation.filterMetadata.chunkIndex,
-      );
-    }
   });
 
   it("breadcrumb tracks heading context", () => {
     const tree = doc(heading("Chapter", 1, 0), para("content", 10));
     const artifacts = walkToChunks(tree, opts);
-    expect(artifacts[0]!.searchRepresentation.filterMetadata.breadcrumb).toEqual(
-      ["Chapter"],
-    );
-    expect(artifacts[0]!.candidateChunk.fullMeta.sectionTitle).toBe("Chapter");
+    expect(artifacts[0]!.metadata.breadcrumb).toEqual(["Chapter"]);
+    expect(artifacts[0]!.metadata.sectionTitle).toBe("Chapter");
   });
 
-  it("anchorText includes breadcrumb prefix", () => {
+  it("denseText includes breadcrumb prefix", () => {
     const tree = doc(heading("Intro", 1, 0), para("This is the intro text.", 10));
     const artifacts = walkToChunks(tree, opts);
-    expect(artifacts[0]!.searchRepresentation.anchorText).toContain("Intro");
-  });
-
-  it("preview is at most 250 chars", () => {
-    const artifacts = walkToChunks(doc(para("x".repeat(1000))), {
-      ...opts,
-      maxTokens: 1024,
-    });
-    for (const a of artifacts) {
-      expect(a.candidateChunk.preview.length).toBeLessThanOrEqual(250);
-    }
+    expect(artifacts[0]!.denseText).toContain("Intro");
   });
 
   it("assigns siblingPrev and siblingNext across windows", () => {
@@ -193,21 +166,25 @@ describe("walkToChunks", () => {
     );
     const artifacts = walkToChunks(bigDoc, { ...opts, maxTokens: 5 });
     expect(artifacts.length).toBeGreaterThan(1);
-    expect(artifacts[0]!.candidateChunk.fullMeta.siblingPrev).toBeUndefined();
-    expect(artifacts[0]!.candidateChunk.fullMeta.siblingNext).toBeDefined();
-    expect(artifacts[artifacts.length - 1]!.candidateChunk.fullMeta.siblingPrev).toBeDefined();
-    expect(artifacts[artifacts.length - 1]!.candidateChunk.fullMeta.siblingNext).toBeUndefined();
+    expect(artifacts[0]!.metadata.siblingPrev).toBeUndefined();
+    expect(artifacts[0]!.metadata.siblingNext).toBeDefined();
+    expect(
+      artifacts[artifacts.length - 1]!.metadata.siblingPrev,
+    ).toBeDefined();
+    expect(
+      artifacts[artifacts.length - 1]!.metadata.siblingNext,
+    ).toBeUndefined();
   });
 
-  it("prepends full breadcrumb path as markdown headings to finalAnswerChunk.content", () => {
+  it("denseText includes breadcrumb headings and body content", () => {
     const tree = doc(
       heading("Intro", 1, 0),
       heading("Config", 2, 10),
       para("configure it here", 20),
     );
     const artifacts = walkToChunks(tree, opts);
-    expect(artifacts[0]!.finalAnswerChunk.content).toMatch(/^# Intro\n## Config\n\n/);
-    expect(artifacts[0]!.finalAnswerChunk.content).toContain("configure it here");
+    expect(artifacts[0]!.denseText).toContain("Intro");
+    expect(artifacts[0]!.denseText).toContain("configure it here");
   });
 
   it("flushes a new window when entering a different section", () => {
@@ -219,8 +196,8 @@ describe("walkToChunks", () => {
     );
     const artifacts = walkToChunks(tree, opts);
     expect(artifacts.length).toBe(2);
-    expect(artifacts[0]!.searchRepresentation.filterMetadata.breadcrumb).toEqual(["Section A"]);
-    expect(artifacts[1]!.searchRepresentation.filterMetadata.breadcrumb).toEqual(["Section B"]);
+    expect(artifacts[0]!.metadata.breadcrumb).toEqual(["Section A"]);
+    expect(artifacts[1]!.metadata.breadcrumb).toEqual(["Section B"]);
   });
 
   it("does not merge trailing small window across section boundaries", () => {
@@ -232,22 +209,23 @@ describe("walkToChunks", () => {
     );
     const artifacts = walkToChunks(tree, opts);
     const sectionBChunk = artifacts.find(
-      (a) => a.searchRepresentation.filterMetadata.breadcrumb[0] === "Section B",
+      (a) => a.metadata.breadcrumb[0] === "Section B",
     );
     expect(sectionBChunk).toBeDefined();
-    expect(sectionBChunk!.finalAnswerChunk.content).not.toContain("word");
+    expect(sectionBChunk!.denseText).not.toContain("word");
   });
 
   describe("overlap", () => {
     it("produces more windows with overlap > 0 than without", () => {
-      // Each paragraph ≈ 5 tokens (20 chars / 4). maxTokens=15 → 3 paras/window.
-      // With 12 paragraphs: 4 windows without overlap.
-      // With overlap=0.5 each new window reuses ~1-2 paras, producing more windows.
       const bigDoc = doc(
         ...Array.from({ length: 12 }, (_, i) => para("word ".repeat(4), i * 20)),
       );
       const noOverlap = walkToChunks(bigDoc, { ...opts, maxTokens: 15, overlap: 0 });
-      const withOverlap = walkToChunks(bigDoc, { ...opts, maxTokens: 15, overlap: 0.5 });
+      const withOverlap = walkToChunks(bigDoc, {
+        ...opts,
+        maxTokens: 15,
+        overlap: 0.5,
+      });
       expect(withOverlap.length).toBeGreaterThan(noOverlap.length);
     });
 
@@ -258,46 +236,6 @@ describe("walkToChunks", () => {
       const a = walkToChunks(d, { ...opts, maxTokens: 10 });
       const b = walkToChunks(d, { ...opts, maxTokens: 10, overlap: 0 });
       expect(a.length).toBe(b.length);
-    });
-  });
-
-  describe("boundaryPadding", () => {
-    it("sets paddedContent on interior windows when padding configured", () => {
-      const bigDoc = doc(
-        ...Array.from({ length: 6 }, (_, i) => para("word ".repeat(6), i * 30)),
-      );
-      const artifacts = walkToChunks(bigDoc, {
-        ...opts,
-        maxTokens: 5,
-        boundaryPadding: { before: 1, after: 1 },
-      });
-      expect(artifacts.length).toBeGreaterThan(1);
-      // Interior windows (not first or last) should have paddedContent
-      const interior = artifacts.slice(1, -1);
-      for (const a of interior) {
-        expect(a.finalAnswerChunk.paddedContent).toBeDefined();
-        expect(a.finalAnswerChunk.paddedContent!.length).toBeGreaterThan(
-          a.finalAnswerChunk.content.length,
-        );
-      }
-    });
-
-    it("content is unchanged — paddedContent is the extended version", () => {
-      const bigDoc = doc(
-        ...Array.from({ length: 4 }, (_, i) => para("word ".repeat(6), i * 30)),
-      );
-      const artifacts = walkToChunks(bigDoc, {
-        ...opts,
-        maxTokens: 5,
-        boundaryPadding: { before: 1, after: 0 },
-      });
-      for (const a of artifacts) {
-        if (a.finalAnswerChunk.paddedContent != null) {
-          expect(a.finalAnswerChunk.paddedContent).toContain(
-            a.finalAnswerChunk.content,
-          );
-        }
-      }
     });
   });
 
@@ -315,34 +253,25 @@ describe("walkToChunks", () => {
         maxTokens: 50,
         adaptiveSize: true,
       });
-      // Code chunks should be more tightly bounded (lower estimatedTokens on average)
       const proseAvg =
-        proseArtifacts.reduce(
-          (s, a) => s + a.searchRepresentation.filterMetadata.estimatedTokens,
-          0,
-        ) / proseArtifacts.length;
+        proseArtifacts.reduce((s, a) => s + a.metadata.estimatedTokens!, 0) /
+        proseArtifacts.length;
       const codeAvg =
-        codeArtifacts.reduce(
-          (s, a) => s + a.searchRepresentation.filterMetadata.estimatedTokens,
-          0,
-        ) / codeArtifacts.length;
+        codeArtifacts.reduce((s, a) => s + a.metadata.estimatedTokens!, 0) /
+        codeArtifacts.length;
       expect(codeAvg).toBeLessThanOrEqual(proseAvg);
     });
   });
 
   describe("recursive", () => {
     it("preserves all content of an oversized segment when recursive=true", () => {
-      // A single paragraph with 10× maxTokens worth of content
-      const longText = "word ".repeat(200); // ~200 tokens at CHARS_PER_TOKEN=4
+      const longText = "word ".repeat(200);
       const artifacts = walkToChunks(doc(para(longText, 0)), {
         ...opts,
         maxTokens: 20,
         recursive: true,
       });
-      const reconstructed = artifacts
-        .map((a) => a.finalAnswerChunk.content)
-        .join("");
-      // All content should be present (possibly concatenated without separator)
+      const reconstructed = artifacts.map((a) => a.sparseText).join("");
       expect(reconstructed.replace(/\s+/g, " ").trim().length).toBeGreaterThan(
         longText.length * 0.9,
       );
@@ -355,12 +284,9 @@ describe("walkToChunks", () => {
         maxTokens: 20,
         recursive: false,
       });
-      // Only one artifact with truncated content
       expect(artifacts.length).toBe(1);
-      expect(artifacts[0]!.finalAnswerChunk.content.length).toBeLessThan(
-        longText.length,
-      );
-      expect(artifacts[0]!.candidateChunk.fullMeta.truncated).toBe(true);
+      expect(artifacts[0]!.sparseText.length).toBeLessThan(longText.length);
+      expect(artifacts[0]!.metadata.truncated).toBe(true);
     });
   });
 });

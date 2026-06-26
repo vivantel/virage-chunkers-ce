@@ -31,6 +31,7 @@ const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 14, modifiedMs: 
 function createTestChunker(opts?: PdfChunkerOptions) {
   return createNativeChunker<PdfChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-pdf",
+    version: "0.1.5",
     sourceFormat: "pdf",
     patterns: ["**/*.pdf"],
     loadBinding: () => ({}),
@@ -61,40 +62,36 @@ describe("virage-chunker-ce-pdf", () => {
   });
 
   describe("createTestChunker (mock loadBinding)", () => {
-    it("chunk() returns ArtifactSet[] with all three artifacts populated", async () => {
+    it("chunk() returns ArtifactSet[] with all required fields populated", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("report.pdf", "abc123");
 
       expect(results.length).toBeGreaterThan(0);
       for (const artifact of results) {
-        expect(typeof artifact.searchRepresentation.id).toBe("string");
-        expect(typeof artifact.searchRepresentation.anchorText).toBe("string");
-        expect(Array.isArray(artifact.searchRepresentation.sparseTerms)).toBe(true);
-        expect(artifact.candidateChunk.id).toBe(artifact.searchRepresentation.id);
-        expect(typeof artifact.candidateChunk.preview).toBe("string");
-        expect(artifact.candidateChunk.preview.length).toBeLessThanOrEqual(250);
-        expect(artifact.finalAnswerChunk.id).toBe(artifact.searchRepresentation.id);
-        expect(typeof artifact.finalAnswerChunk.content).toBe("string");
-
-        const fm = artifact.searchRepresentation.filterMetadata;
-        expect(fm.sourceFile).toBe("report.pdf");
-        expect(fm.sourceFormat).toBe("pdf");
-        expect(fm.fileHash).toBeTruthy();
-        expect(fm.fileSizeBytes).toBe(14);
+        expect(typeof artifact.denseText).toBe("string");
+        expect(artifact.denseText.length).toBeGreaterThan(0);
+        expect(typeof artifact.sparseText).toBe("string");
+        expect(typeof artifact.denseTextHash).toBe("string");
+        expect(artifact.denseTextHash.length).toBe(16);
+        expect(artifact.metadata.sourceFile).toBe("report.pdf");
+        expect(artifact.metadata.sourceFormat).toBe("pdf");
+        expect(artifact.metadata.fileHash).toBeTruthy();
+        expect(artifact.metadata.fileSizeBytes).toBe(14);
       }
     });
 
-    it("anchorText includes breadcrumb from heading", async () => {
+    it("denseText includes breadcrumb from heading", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("report.pdf", "abc123");
       const first = results[0]!;
-      expect(first.searchRepresentation.anchorText).toContain("Introduction");
+      expect(first.denseText).toContain("Introduction");
     });
 
     it("native binding is loaded lazily (only on first chunk call)", async () => {
       let callCount = 0;
       const testChunker = createNativeChunker<PdfChunkerOptions>({
         name: "@vivantel/virage-chunker-ce-pdf",
+        version: "0.1.5",
         sourceFormat: "pdf",
         patterns: ["**/*.pdf"],
         loadBinding: () => {

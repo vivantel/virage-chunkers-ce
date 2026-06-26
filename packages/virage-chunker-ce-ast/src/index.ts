@@ -4,10 +4,6 @@ export type {
   DocNodeAttrs,
   FilterMeta,
   ChunkMeta,
-  InjectedContext,
-  SearchRepresentation,
-  CandidateChunk,
-  FinalAnswerChunk,
   ArtifactSet,
   ArtifactChunker,
 } from "./types.js";

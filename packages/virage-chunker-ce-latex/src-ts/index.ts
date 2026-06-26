@@ -8,6 +8,7 @@ export type LatexChunkerOptions = BaseOptions;
 
 export const createChunker = createNativeChunker<LatexChunkerOptions>({
   name: "@vivantel/virage-chunker-ce-latex",
+  version: "0.1.2",
   sourceFormat: "latex",
   patterns: ["**/*.tex", "**/*.latex"],
   loadBinding: () => require("./virage_chunker_ce_latex.node"),

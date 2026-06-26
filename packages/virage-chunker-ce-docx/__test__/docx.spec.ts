@@ -60,11 +60,12 @@ const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 15, modifiedMs: 
 function createTestChunker(opts?: DocxChunkerOptions) {
   return createNativeChunker<DocxChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-docx",
+    version: "0.1.2",
     sourceFormat: "docx",
     patterns: ["**/*.docx"],
     loadBinding: () => ({}),
     callNative: (_b, _filePath) => mockResult,
-    extraWalkOpts: () => ({ overlap: 0.1, boundaryPadding: { before: 1, after: 1 } }),
+    extraWalkOpts: () => ({ overlap: 0.1 }),
   })(opts);
 }
 
@@ -91,27 +92,23 @@ describe("virage-chunker-ce-docx", () => {
 
       expect(results.length).toBeGreaterThan(0);
       for (const artifact of results) {
-        expect(artifact.searchRepresentation.id).toBeTruthy();
-        expect(artifact.candidateChunk.preview.length).toBeLessThanOrEqual(250);
-        expect(artifact.searchRepresentation.filterMetadata.sourceFormat).toBe("docx");
+        expect(artifact.denseTextHash).toBeTruthy();
+        expect(artifact.denseTextHash.length).toBe(16);
+        expect(artifact.metadata.sourceFormat).toBe("docx");
       }
     });
 
     it("breadcrumb includes section heading", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("report.docx", "abc123");
-      const allBreadcrumbs = results.flatMap(
-        (r) => r.searchRepresentation.filterMetadata.breadcrumb,
-      );
+      const allBreadcrumbs = results.flatMap((r) => r.metadata.breadcrumb);
       expect(allBreadcrumbs).toContain("Executive Summary");
     });
 
-    it("table cell breadcrumb propagates parent section context", async () => {
+    it("table cell content appears in sparseText", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("report.docx", "abc123");
-      const tableChunks = results.filter(
-        (r) => r.finalAnswerChunk.content.includes("Widget A"),
-      );
+      const tableChunks = results.filter((r) => r.sparseText.includes("Widget A"));
       expect(tableChunks.length).toBeGreaterThan(0);
     });
   });

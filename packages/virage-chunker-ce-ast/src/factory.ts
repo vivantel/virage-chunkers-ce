@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { minimatch } from "minimatch";
 import type { ArtifactSet, ArtifactChunker, DocNode } from "./types.js";
 import { walkToChunks } from "./chunker.js";
@@ -7,7 +8,6 @@ export interface BaseOptions {
   maxTokens?: number;
   minTokens?: number;
   overlap?: number;
-  boundaryPadding?: { before?: number; after?: number };
   adaptiveSize?: boolean;
   recursive?: boolean;
   ignore?: string[];
@@ -26,6 +26,8 @@ export interface ParseResult {
 export interface NativeChunkerDef<TOptions extends BaseOptions> {
   /** npm package name, used as the `strategy` field in ArtifactSet. */
   name: string;
+  /** Semver version string (e.g. "0.1.3"). Used to compute generator IDs. */
+  version: string;
   /** "pdf" | "md" | "docx" | "xlsx" etc. — becomes `sourceFormat`. */
   sourceFormat: string;
   /** Glob patterns this chunker accepts, e.g. ["**\/*.pdf"]. */
@@ -51,6 +53,20 @@ export interface NativeChunkerDef<TOptions extends BaseOptions> {
   enrich?: (sets: ArtifactSet[], docNode: DocNode, opts: TOptions) => ArtifactSet[];
 }
 
+function makeGeneratorId(name: string, version: string, role: string, opts: BaseOptions): string {
+  const fp = JSON.stringify({
+    maxTokens: opts.maxTokens,
+    minTokens: opts.minTokens,
+    overlap: opts.overlap,
+    adaptiveSize: opts.adaptiveSize,
+    recursive: opts.recursive,
+  });
+  return createHash("sha256")
+    .update(`${name}@${version}:${role}:${fp}`)
+    .digest("hex")
+    .slice(0, 16);
+}
+
 /**
  * Factory that eliminates boilerplate common to every native-binary chunker:
  * lazy binding load, walkToChunks, and optional enrich hook.
@@ -67,6 +83,9 @@ export function createNativeChunker<TOptions extends BaseOptions>(
     const ignore = resolvedOpts.ignore ?? [];
     let _binding: ReturnType<NativeChunkerDef<TOptions>["loadBinding"]> | null = null;
 
+    const sparseTextGeneratorId = makeGeneratorId(def.name, def.version, "sparse", resolvedOpts);
+    const metadataGeneratorId = makeGeneratorId(def.name, def.version, "meta", resolvedOpts);
+
     function getBinding() {
       if (_binding == null) {
         _binding = def.loadBinding();
@@ -76,7 +95,10 @@ export function createNativeChunker<TOptions extends BaseOptions>(
 
     return {
       name: def.name,
+      version: def.version,
       patterns: def.patterns,
+      sparseTextGeneratorId,
+      metadataGeneratorId,
 
       async chunk(filePath: string, commitHash: string): Promise<ArtifactSet[]> {
         const binding = getBinding();
@@ -95,9 +117,6 @@ export function createNativeChunker<TOptions extends BaseOptions>(
           ...(resolvedOpts.overlap != null
             ? { overlap: resolvedOpts.overlap }
             : {}),
-          ...(resolvedOpts.boundaryPadding != null
-            ? { boundaryPadding: resolvedOpts.boundaryPadding }
-            : {}),
           ...(resolvedOpts.adaptiveSize != null
             ? { adaptiveSize: resolvedOpts.adaptiveSize }
             : {}),
@@ -108,6 +127,8 @@ export function createNativeChunker<TOptions extends BaseOptions>(
           sourceFormat: def.sourceFormat,
           commitHash,
           strategy: def.name,
+          sparseTextGeneratorId,
+          metadataGeneratorId,
           fileHash: result.hash,
           fileSizeBytes: result.size,
           fileModifiedAt: new Date(result.modifiedMs).toISOString(),

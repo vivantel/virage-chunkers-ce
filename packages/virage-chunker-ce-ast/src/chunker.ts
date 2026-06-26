@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { DocNode, ArtifactSet, FilterMeta, ChunkMeta } from "./types.js";
 import { walkDocNode } from "./ast-walker.js";
 import { extractOutline } from "./outline.js";
@@ -8,6 +9,8 @@ export interface WalkOptions {
   sourceFormat: string;
   commitHash: string;
   strategy: string;
+  sparseTextGeneratorId: string;
+  metadataGeneratorId: string;
   /** Maximum tokens per chunk window (default: 512). */
   maxTokens?: number;
   /** Minimum tokens before merging a trailing window into its predecessor (default: maxTokens / 4). */
@@ -15,17 +18,9 @@ export interface WalkOptions {
   /**
    * Sliding-window overlap as a fraction 0–1 (default: 0).
    * An overlap of 0.2 means each new window reuses the last 20 % of the previous
-   * window's content, producing overlapping SearchRepresentations that share context.
+   * window's content, producing overlapping ArtifactSets that share context.
    */
   overlap?: number;
-  /**
-   * Paragraphs (text segments) to prepend/append from adjacent windows into
-   * FinalAnswerChunk.paddedContent only. Does NOT affect anchorText or preview.
-   */
-  boundaryPadding?: {
-    before?: number;
-    after?: number;
-  };
   /**
    * When true, segments that exceed maxTokens are recursively split on character
    * boundaries before windowing, rather than hard-cut with content loss (default: false).
@@ -42,32 +37,18 @@ export interface WalkOptions {
 }
 
 const CHARS_PER_TOKEN = 4;
-const PREVIEW_CHARS = 250;
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-function makePreview(content: string): string {
-  if (content.length <= PREVIEW_CHARS) return content;
-  const cut = content.slice(0, PREVIEW_CHARS);
-  const lastSpace = cut.lastIndexOf(" ");
-  return lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
-}
-
-function makeAnchorText(breadcrumb: string[], rawContent: string): string {
+function makeDenseText(breadcrumb: string[], rawContent: string): string {
   const prefix = breadcrumb.length > 0 ? breadcrumb.join(" › ") + ". " : "";
-  const dotIdx = rawContent.search(/[.!?]\s/);
-  const firstSentence =
-    dotIdx > 0 ? rawContent.slice(0, dotIdx + 1) : rawContent.slice(0, 150);
-  return (prefix + firstSentence).slice(0, 250);
+  return prefix + rawContent;
 }
 
-function makeSparseTerms(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/\W+/)
-    .filter((t) => t.length > 2);
+function computeDenseTextHash(denseText: string): string {
+  return createHash("sha256").update(denseText).digest("hex").slice(0, 16);
 }
 
 function sameBreadcrumb(a: string[], b: string[]): boolean {
@@ -118,18 +99,16 @@ type Window = {
  *
  * Each window is split at paragraph/segment boundaries when the accumulated
  * token count reaches maxTokens. A section boundary (breadcrumb change) also
- * flushes the current window. Level 2 modifiers (overlap, boundaryPadding,
- * recursive, adaptiveSize) refine this behaviour.
+ * flushes the current window. Level 2 modifiers (overlap, recursive,
+ * adaptiveSize) refine this behaviour.
  *
- * finalAnswerChunk.content includes a heading prefix derived from the window's
- * breadcrumb so the LLM always has heading context.
+ * contextText is NOT stored — it is assembled on-the-fly at query time
+ * using denseText, metadata.parentId, and metadata.siblingIds.
  */
 export function walkToChunks(root: DocNode, opts: WalkOptions): ArtifactSet[] {
   const maxTokens = opts.maxTokens ?? 512;
   const minTokens = opts.minTokens ?? Math.floor(maxTokens / 4);
   const overlap = Math.min(Math.max(opts.overlap ?? 0, 0), 0.9);
-  const padBefore = opts.boundaryPadding?.before ?? 0;
-  const padAfter = opts.boundaryPadding?.after ?? 0;
   const recursive = opts.recursive ?? false;
   const adaptiveSize = opts.adaptiveSize ?? false;
 
@@ -146,8 +125,6 @@ export function walkToChunks(root: DocNode, opts: WalkOptions): ArtifactSet[] {
   // ── Build windows ──────────────────────────────────────────────────────────
 
   const windows: Window[] = [];
-  // Track which segment index each window starts/ends at (for boundaryPadding).
-  const windowSegBounds: Array<{ start: number; end: number }> = [];
   let startIdx = 0;
 
   while (startIdx < segments.length) {
@@ -207,7 +184,6 @@ export function walkToChunks(root: DocNode, opts: WalkOptions): ArtifactSet[] {
 
     if (win.texts.length > 0) {
       windows.push(win);
-      windowSegBounds.push({ start: startIdx, end: idx });
 
       // Compute the next start index, accounting for overlap.
       if (overlap > 0 && idx > startIdx + 1) {
@@ -239,8 +215,6 @@ export function walkToChunks(root: DocNode, opts: WalkOptions): ArtifactSet[] {
       prev.byteEnd = last.byteEnd;
       prev.lineEnd = last.lineEnd;
       prev.pageEnd = last.pageEnd;
-      const lastBounds = windowSegBounds.pop()!;
-      windowSegBounds[windowSegBounds.length - 1]!.end = lastBounds.end;
       windows.pop();
     }
   }
@@ -250,13 +224,6 @@ export function walkToChunks(root: DocNode, opts: WalkOptions): ArtifactSet[] {
   // ── Build ArtifactSet[] ───────────────────────────────────────────────────
   const artifacts: ArtifactSet[] = windows.map((win, i) => {
     const rawContent = win.texts.join("\n\n");
-    const headingPrefix =
-      win.breadcrumb.length > 0
-        ? win.breadcrumb.map((h, k) => "#".repeat(k + 1) + " " + h).join("\n") +
-          "\n\n"
-        : "";
-    const content = headingPrefix + rawContent;
-    const id = `${opts.sourceFile}:${i}`;
 
     const filterMeta: FilterMeta = {
       sourceFile: opts.sourceFile,
@@ -292,60 +259,33 @@ export function walkToChunks(root: DocNode, opts: WalkOptions): ArtifactSet[] {
       truncated: win.truncated || undefined,
     };
 
+    const denseText = makeDenseText(win.breadcrumb, rawContent);
+
     return {
+      denseText,
+      sparseText: rawContent,
+      denseTextHash: computeDenseTextHash(denseText),
+      sparseTextGeneratorId: opts.sparseTextGeneratorId,
+      metadataGeneratorId: opts.metadataGeneratorId,
+      metadata: fullMeta,
       sourceFile: opts.sourceFile,
       commitHash: opts.commitHash,
-      searchRepresentation: {
-        id,
-        anchorText: makeAnchorText(win.breadcrumb, rawContent),
-        sparseTerms: makeSparseTerms(rawContent),
-        filterMetadata: filterMeta,
-      },
-      candidateChunk: {
-        id,
-        preview: makePreview(content),
-        fullMeta,
-      },
-      finalAnswerChunk: {
-        id,
-        content,
-      },
     };
   });
 
   // ── Assign sibling IDs ────────────────────────────────────────────────────
   for (let i = 0; i < artifacts.length; i++) {
     const a = artifacts[i]!;
-    if (i > 0)
-      a.candidateChunk.fullMeta.siblingPrev =
-        artifacts[i - 1]!.searchRepresentation.id;
-    if (i < artifacts.length - 1)
-      a.candidateChunk.fullMeta.siblingNext =
-        artifacts[i + 1]!.searchRepresentation.id;
-  }
+    const prev = i > 0 ? artifacts[i - 1] : undefined;
+    const next = i < artifacts.length - 1 ? artifacts[i + 1] : undefined;
 
-  // ── Apply boundary padding to FinalAnswerChunk ────────────────────────────
-  if (padBefore > 0 || padAfter > 0) {
-    for (let i = 0; i < artifacts.length; i++) {
-      const parts: string[] = [];
+    if (prev) a.metadata.siblingPrev = prev.denseTextHash;
+    if (next) a.metadata.siblingNext = next.denseTextHash;
 
-      if (padBefore > 0 && i > 0) {
-        const prevTexts = windows[i - 1]!.texts;
-        parts.push(prevTexts.slice(-padBefore).join("\n\n"));
-      }
-
-      parts.push(artifacts[i]!.finalAnswerChunk.content);
-
-      if (padAfter > 0 && i < artifacts.length - 1) {
-        const nextTexts = windows[i + 1]!.texts;
-        parts.push(nextTexts.slice(0, padAfter).join("\n\n"));
-      }
-
-      const padded = parts.filter(Boolean).join("\n\n");
-      if (padded !== artifacts[i]!.finalAnswerChunk.content) {
-        artifacts[i]!.finalAnswerChunk.paddedContent = padded;
-      }
-    }
+    const siblingIds: string[] = [];
+    if (prev) siblingIds.push(prev.denseTextHash);
+    if (next) siblingIds.push(next.denseTextHash);
+    if (siblingIds.length > 0) a.metadata.siblingIds = siblingIds;
   }
 
   return artifacts;

@@ -40,6 +40,7 @@ const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 15, modifiedMs: 
 function createTestChunker(opts?: MdChunkerOptions) {
   return createNativeChunker<MdChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-md",
+    version: "0.1.3",
     sourceFormat: "md",
     patterns: ["**/*.md", "**/*.mdx"],
     loadBinding: () => ({}),
@@ -72,40 +73,37 @@ describe("virage-chunker-ce-md", () => {
   });
 
   describe("chunk() with mock binding", () => {
-    it("returns ArtifactSet[] with all three artifacts populated", async () => {
+    it("returns ArtifactSet[] with all required fields populated", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("docs/guide.md", "abc123");
 
       expect(results.length).toBeGreaterThan(0);
       for (const artifact of results) {
-        expect(typeof artifact.searchRepresentation.id).toBe("string");
-        expect(typeof artifact.searchRepresentation.anchorText).toBe("string");
-        expect(artifact.candidateChunk.preview.length).toBeLessThanOrEqual(250);
-        expect(typeof artifact.finalAnswerChunk.content).toBe("string");
-        expect(artifact.searchRepresentation.filterMetadata.sourceFormat).toBe("md");
-        expect(artifact.searchRepresentation.filterMetadata.fileHash).toBeTruthy();
+        expect(typeof artifact.denseText).toBe("string");
+        expect(artifact.denseText.length).toBeGreaterThan(0);
+        expect(typeof artifact.sparseText).toBe("string");
+        expect(typeof artifact.denseTextHash).toBe("string");
+        expect(artifact.denseTextHash.length).toBe(16);
+        expect(artifact.metadata.sourceFormat).toBe("md");
+        expect(artifact.metadata.fileHash).toBeTruthy();
       }
     });
 
     it("breadcrumb includes heading text", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("docs/guide.md", "abc123");
-      const headings = results
-        .map((r) => r.searchRepresentation.filterMetadata.breadcrumb)
-        .flat();
+      const headings = results.map((r) => r.metadata.breadcrumb).flat();
       expect(headings).toContain("Introduction");
     });
 
-    it("code blocks carry codeLanguage in filterMetadata", async () => {
+    it("code blocks carry codeLanguage in metadata", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("docs/guide.md", "abc123");
-      const codeChunks = results.filter(
-        (r) => r.searchRepresentation.filterMetadata.codeLanguage != null,
-      );
+      const codeChunks = results.filter((r) => r.metadata.codeLanguage != null);
       expect(codeChunks.length).toBeGreaterThan(0);
-      const langs = codeChunks.map((r) => r.searchRepresentation.filterMetadata.codeLanguage);
+      const langs = codeChunks.map((r) => r.metadata.codeLanguage);
       expect(langs.some((l) => l === "rust" || l === "jsx")).toBe(true);
-      const allContent = results.map((r) => r.finalAnswerChunk.content).join("\n");
+      const allContent = results.map((r) => r.sparseText).join("\n");
       expect(allContent).toContain("CodeBlock");
     });
 

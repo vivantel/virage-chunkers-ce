@@ -36,6 +36,7 @@ const mockResult = { tree: docNodeJson, hash: "deadbeef", size: 50, modifiedMs: 
 function createTestChunker(opts?: LatexChunkerOptions) {
   return createNativeChunker<LatexChunkerOptions>({
     name: "@vivantel/virage-chunker-ce-latex",
+    version: "0.1.2",
     sourceFormat: "latex",
     patterns: ["**/*.tex", "**/*.latex"],
     loadBinding: () => ({}),
@@ -68,9 +69,9 @@ describe("virage-chunker-ce-latex", () => {
 
       expect(results.length).toBeGreaterThan(0);
       for (const artifact of results) {
-        expect(artifact.searchRepresentation.id).toBeTruthy();
-        expect(artifact.candidateChunk.preview.length).toBeLessThanOrEqual(250);
-        expect(artifact.searchRepresentation.filterMetadata.sourceFormat).toBe("latex");
+        expect(artifact.denseTextHash).toBeTruthy();
+        expect(artifact.denseTextHash.length).toBe(16);
+        expect(artifact.metadata.sourceFormat).toBe("latex");
       }
     });
 
@@ -78,15 +79,15 @@ describe("virage-chunker-ce-latex", () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("paper.tex", "abc123");
       const headings = results
-        .flatMap((r) => r.searchRepresentation.filterMetadata.breadcrumb)
+        .flatMap((r) => r.metadata.breadcrumb)
         .filter(Boolean);
       expect(headings).toContain("Introduction");
     });
 
-    it("formula content appears in final answer chunks", async () => {
+    it("formula content appears in sparseText", async () => {
       const chunker = createTestChunker();
       const results = await chunker.chunk("paper.tex", "abc123");
-      const allContent = results.map((r) => r.finalAnswerChunk.content).join("\n");
+      const allContent = results.map((r) => r.sparseText).join("\n");
       expect(allContent).toContain("E = mc^2");
     });
   });

@@ -40,6 +40,7 @@ export type MdChunkerOptions = BaseOptions;
 
 export const createChunker = createNativeChunker<MdChunkerOptions>({
   name: "@vivantel/virage-chunker-ce-md",
+  version: "0.1.3",
   sourceFormat: "md",
   patterns: ["**/*.md", "**/*.mdx"],
   loadBinding,
