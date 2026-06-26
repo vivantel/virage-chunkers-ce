@@ -7,6 +7,12 @@
 // npm's arborist then throws "Invalid Version" on the next npm ci because it calls
 // new SemVer(node.version) on all nodes during ideal-tree reconstruction.
 //
+// Stubs may appear at either a nested path (packages/X/node_modules/@vivantel/Y) or a
+// hoisted path (node_modules/@vivantel/Y) depending on npm's deduplication. Both are
+// patched. Hoisted stubs retain their original resolved/integrity (pointing to the
+// last-published tarball) so npm ci can install that tarball while the new version is
+// still in the release pipeline.
+//
 // Run automatically via the root postinstall hook (npm install) and as an explicit
 // CI step before npm ci.
 
@@ -41,6 +47,13 @@ for (const [pkgPath, pkgEntry] of Object.entries(packages)) {
     const stubEntry = packages[stubPath];
     if (stubEntry !== undefined && stubEntry.version !== depVersion) {
       stubEntry.version = depVersion;
+      changed = true;
+    }
+
+    const hoistedPath = `node_modules/${depName}`;
+    const hoistedEntry = packages[hoistedPath];
+    if (hoistedEntry !== undefined && hoistedEntry.version !== depVersion) {
+      hoistedEntry.version = depVersion;
       changed = true;
     }
   }

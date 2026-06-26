@@ -32,3 +32,13 @@ if [ -n "$STAGED_PKG" ]; then
     exit 1
   fi
 fi
+
+echo "pre-commit: platform stub version check"
+PATCH_OUT=$(node scripts/patch-lockfile-stubs.cjs 2>&1)
+if [ -n "$PATCH_OUT" ]; then
+  echo "ERROR: lockfile platform stub versions are out of sync with package.json."
+  echo "$PATCH_OUT"
+  echo "Run 'npm install' then: git add package-lock.json"
+  git checkout -- package-lock.json
+  exit 1
+fi
