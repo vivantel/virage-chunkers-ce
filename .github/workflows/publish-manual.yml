@@ -26,6 +26,9 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
+      - name: Patch lockfile stub version fields
+        run: node scripts/patch-lockfile-stubs.cjs
+
       - run: npm ci --omit=optional
 
       - name: Build TypeScript packages
