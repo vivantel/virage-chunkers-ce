@@ -25,7 +25,7 @@
     "@vivantel/virage-core": ">=0.2"
   },
   "devDependencies": {
-    "@vivantel/virage-core": ">=0.2"
+    "@vivantel/virage-core": "^0.2.63"
   },
   "rag-plugin": {
     "type": "chunker",
