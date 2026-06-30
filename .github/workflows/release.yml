@@ -152,7 +152,7 @@ jobs:
 
       - name: Download binary artifacts
         if: needs.setup.outputs.has_native == 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: binaries/
 
